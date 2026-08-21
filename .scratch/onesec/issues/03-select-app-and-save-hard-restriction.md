@@ -17,3 +17,4 @@
 ## Comments
 
 - 2026-08-21: Implemented filtered installed-app catalog with icons, hard-restriction editing, package-name persistence, restart restoration, and fake-adapter unit/UI coverage. Three Compose instrumentation tests passed on PCAM00.
+- 2026-08-21: Follow-up fixed single-rule replacement: multiple apps now retain independent rules, and an in-progress selection can be cancelled without changing saved restrictions. Immediate removal of an active hard restriction remains deferred to ticket 07 as a pending relaxation.

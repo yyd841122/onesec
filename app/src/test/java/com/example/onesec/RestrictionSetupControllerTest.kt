@@ -44,9 +44,9 @@ class RestrictionSetupControllerTest {
                 level = RestrictionLevel.HARD,
                 dailyAllowance = DailyAllowance.ofMinutes(45),
             ),
-            rules.savedRule,
+            rules.savedRules.single(),
         )
-        assertEquals(rules.savedRule, controller.state.savedRule)
+        assertEquals(rules.savedRules, controller.state.savedRules)
         assertNull(controller.state.editor)
     }
 
@@ -64,7 +64,40 @@ class RestrictionSetupControllerTest {
             FakeRestrictionRuleStore(savedRule),
         )
 
-        assertEquals(savedRule, restartedController.state.savedRule)
+        assertEquals(listOf(savedRule), restartedController.state.savedRules)
+    }
+
+    @Test
+    fun `saving another app keeps both restrictions and a new selection can be cancelled`() {
+        val catalog = FakeAppCatalog(
+            listOf(
+                InstalledApp("com.example.video", "短视频"),
+                InstalledApp("com.example.game", "游戏"),
+            ),
+        )
+        val controller = RestrictionSetupController(catalog, FakeRestrictionRuleStore())
+
+        controller.openAppCatalog()
+        controller.selectApp("com.example.video")
+        controller.saveRule()
+        controller.openAppCatalog()
+        controller.selectApp("com.example.game")
+        controller.saveRule()
+
+        assertEquals(
+            listOf("com.example.video", "com.example.game"),
+            controller.state.savedRules.map { it.packageName },
+        )
+
+        controller.openAppCatalog()
+        controller.selectApp("com.example.video")
+        controller.cancelSelection()
+
+        assertEquals(
+            listOf("com.example.video", "com.example.game"),
+            controller.state.savedRules.map { it.packageName },
+        )
+        assertNull(controller.state.editor)
     }
 }
 
@@ -77,11 +110,14 @@ private class FakeAppCatalog(
 private class FakeRestrictionRuleStore(
     initialRule: RestrictedAppRule? = null,
 ) : RestrictionRuleStore {
-    var savedRule: RestrictedAppRule? = initialRule
+    val savedRules = mutableListOf<RestrictedAppRule>().apply {
+        if (initialRule != null) add(initialRule)
+    }
 
-    override fun loadRule(): RestrictedAppRule? = savedRule
+    override fun loadRules(): List<RestrictedAppRule> = savedRules.toList()
 
     override fun saveRule(rule: RestrictedAppRule) {
-        savedRule = rule
+        savedRules.removeAll { it.packageName == rule.packageName }
+        savedRules.add(rule)
     }
 }

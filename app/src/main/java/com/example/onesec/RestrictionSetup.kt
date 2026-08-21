@@ -63,7 +63,7 @@ data class RestrictionEditorState(
 
 data class RestrictionSetupState(
     val apps: List<InstalledApp> = emptyList(),
-    val savedRule: RestrictedAppRule? = null,
+    val savedRules: List<RestrictedAppRule> = emptyList(),
     val editor: RestrictionEditorState? = null,
 )
 
@@ -72,7 +72,7 @@ interface AppCatalog {
 }
 
 interface RestrictionRuleStore {
-    fun loadRule(): RestrictedAppRule?
+    fun loadRules(): List<RestrictedAppRule>
 
     fun saveRule(rule: RestrictedAppRule)
 }
@@ -81,7 +81,7 @@ class RestrictionSetupController(
     private val appCatalog: AppCatalog,
     private val ruleStore: RestrictionRuleStore,
 ) {
-    var state = RestrictionSetupState(savedRule = ruleStore.loadRule())
+    var state = RestrictionSetupState(savedRules = ruleStore.loadRules())
         private set
 
     fun openAppCatalog() {
@@ -107,6 +107,15 @@ class RestrictionSetupController(
             dailyAllowance = editor.dailyAllowance,
         )
         ruleStore.saveRule(rule)
-        state = state.copy(savedRule = rule, editor = null)
+        state = state.copy(
+            savedRules = state.savedRules
+                .filterNot { it.packageName == rule.packageName }
+                .plus(rule),
+            editor = null,
+        )
+    }
+
+    fun cancelSelection() {
+        state = state.copy(editor = null)
     }
 }

@@ -60,6 +60,10 @@ fun RestrictionSetupRoute(
             controller.saveRule()
             state = controller.state
         },
+        onCancelSelection = {
+            controller.cancelSelection()
+            state = controller.state
+        },
         onBack = onBack,
     )
 }
@@ -72,6 +76,7 @@ private fun RestrictionSetupScreen(
     onSelectApp: (String) -> Unit,
     onChangeAllowance: (Int) -> Unit,
     onSave: () -> Unit,
+    onCancelSelection: () -> Unit,
     onBack: () -> Unit,
 ) {
     MaterialTheme {
@@ -89,9 +94,10 @@ private fun RestrictionSetupScreen(
                         editor = state.editor,
                         onChangeAllowance = onChangeAllowance,
                         onSave = onSave,
+                        onCancelSelection = onCancelSelection,
                     )
                     showingCatalog -> AppCatalogList(state.apps, onSelectApp)
-                    else -> RestrictionSummary(state.savedRule, onOpenCatalog)
+                    else -> RestrictionSummary(state.savedRules, onOpenCatalog)
                 }
 
                 OutlinedButton(onClick = onBack) {
@@ -104,20 +110,23 @@ private fun RestrictionSetupScreen(
 
 @Composable
 private fun RestrictionSummary(
-    savedRule: RestrictedAppRule?,
+    savedRules: List<RestrictedAppRule>,
     onOpenCatalog: () -> Unit,
 ) {
-    if (savedRule == null) {
+    if (savedRules.isEmpty()) {
         Text("尚未选择受限应用", style = MaterialTheme.typography.bodyLarge)
     } else {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(savedRule.displayName, style = MaterialTheme.typography.titleLarge)
-                Text("强限制 · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
-                Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("已选择 ${savedRules.size} 个受限应用", style = MaterialTheme.typography.titleMedium)
+        savedRules.forEach { savedRule ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(savedRule.displayName, style = MaterialTheme.typography.titleLarge)
+                    Text("强限制 · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
+                    Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -151,6 +160,7 @@ private fun RestrictionEditor(
     editor: RestrictionEditorState,
     onChangeAllowance: (Int) -> Unit,
     onSave: () -> Unit,
+    onCancelSelection: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -178,6 +188,9 @@ private fun RestrictionEditor(
     }
     Button(onClick = onSave) {
         Text("保存强限制")
+    }
+    OutlinedButton(onClick = onCancelSelection) {
+        Text("取消选择")
     }
 }
 

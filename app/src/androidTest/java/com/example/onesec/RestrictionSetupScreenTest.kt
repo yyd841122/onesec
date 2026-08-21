@@ -44,11 +44,12 @@ private class ScreenAppCatalog(
 }
 
 private class ScreenRuleStore : RestrictionRuleStore {
-    private var rule: RestrictedAppRule? = null
+    private val rules = mutableListOf<RestrictedAppRule>()
 
-    override fun loadRule(): RestrictedAppRule? = rule
+    override fun loadRules(): List<RestrictedAppRule> = rules.toList()
 
     override fun saveRule(rule: RestrictedAppRule) {
-        this.rule = rule
+        rules.removeAll { it.packageName == rule.packageName }
+        rules.add(rule)
     }
 }
