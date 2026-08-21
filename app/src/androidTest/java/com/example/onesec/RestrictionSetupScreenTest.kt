@@ -1,0 +1,54 @@
+package com.example.onesec
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import org.junit.Rule
+import org.junit.Test
+
+class RestrictionSetupScreenTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    @Test
+    fun userCanChooseAnAppAdjustAllowanceAndSaveAHardRestriction() {
+        val controller = RestrictionSetupController(
+            appCatalog = ScreenAppCatalog(
+                listOf(InstalledApp("com.example.video", "短视频")),
+            ),
+            ruleStore = ScreenRuleStore(),
+        )
+        composeRule.setContent {
+            RestrictionSetupRoute(controller = controller, onBack = {})
+        }
+
+        composeRule.onNodeWithText("选择受限应用").performClick()
+        composeRule.onNodeWithText("短视频").assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription("短视频 图标").assertIsDisplayed()
+        composeRule.onNodeWithText("30 分钟").assertIsDisplayed()
+
+        composeRule.onNodeWithText("增加 5 分钟").performClick()
+        composeRule.onNodeWithText("保存强限制").performClick()
+
+        composeRule.onNodeWithText("短视频").assertIsDisplayed()
+        composeRule.onNodeWithText("强限制 · 每日 35 分钟").assertIsDisplayed()
+    }
+}
+
+private class ScreenAppCatalog(
+    private val apps: List<InstalledApp>,
+) : AppCatalog {
+    override fun manageableApps(): List<InstalledApp> = apps
+}
+
+private class ScreenRuleStore : RestrictionRuleStore {
+    private var rule: RestrictedAppRule? = null
+
+    override fun loadRule(): RestrictedAppRule? = rule
+
+    override fun saveRule(rule: RestrictedAppRule) {
+        this.rule = rule
+    }
+}

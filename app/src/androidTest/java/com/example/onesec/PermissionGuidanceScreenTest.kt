@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -33,12 +34,17 @@ class PermissionGuidanceScreenTest {
         }
 
         composeRule.onNodeWithText("保护失效").assertIsDisplayed()
-        composeRule.onNodeWithText("使用数据不可靠").assertIsDisplayed()
-        composeRule.onNodeWithText("使用情况访问权限用于统计应用前台用时。").assertIsDisplayed()
-        composeRule.onNodeWithText("无障碍权限用于识别当前应用并触发拦截。").assertIsDisplayed()
+        composeRule.onNodeWithText("使用数据不可靠：请修复下方缺失的核心权限。")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("使用情况访问权限用于统计应用前台用时。")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("无障碍权限用于识别当前应用并触发拦截。")
+            .performScrollTo()
+            .assertIsDisplayed()
 
-        composeRule.onNodeWithText("打开使用情况访问设置").performClick()
-        composeRule.onNodeWithText("打开无障碍设置").performClick()
+        composeRule.onNodeWithText("打开使用情况访问设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("打开无障碍设置").performScrollTo().performClick()
 
         assertEquals(1, usageSettingsOpenCount)
         assertEquals(1, accessibilitySettingsOpenCount)
