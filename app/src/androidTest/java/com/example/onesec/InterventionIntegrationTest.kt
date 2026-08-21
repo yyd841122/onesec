@@ -32,22 +32,28 @@ class InterventionIntegrationTest {
             level = RestrictionLevel.HARD,
             dailyAllowance = DailyAllowance.ofMinutes(30),
         )
+        val presenter = CountingInterventionPresenter(AndroidInterventionPresenter(context))
         val monitor = ForegroundAppMonitor(
             ruleStore = IntegrationRuleStore(rule),
             usageLookup = TodayUsageLookup { _, _ -> 30 },
             protectionStatus = { true },
             exhaustedAllowances = IntegrationExhaustedAllowanceStore(),
             decisionEngine = DefaultRestrictionDecisionEngine,
-            presenter = AndroidInterventionPresenter(context),
+            presenter = presenter,
             clock = Clock.fixed(now, zoneId),
         )
 
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val event = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
-            event.packageName = rule.packageName
-            AndroidForegroundEventHandler(monitor).onAccessibilityEvent(event)
-            event.recycle()
+            val handler = AndroidForegroundEventHandler(monitor)
+            repeat(5) {
+                val event = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+                event.packageName = rule.packageName
+                handler.onAccessibilityEvent(event)
+                event.recycle()
+            }
         }
+
+        org.junit.Assert.assertEquals(1, presenter.presentationCount)
 
         composeRule.waitUntilAtLeastOneExists(hasText("强限制已生效"), timeoutMillis = 5_000)
         composeRule.onNodeWithText("强限制已生效").assertIsDisplayed()
@@ -71,6 +77,16 @@ class InterventionIntegrationTest {
                     .none { it is InterventionActivity },
             )
         }
+    }
+}
+
+private class CountingInterventionPresenter(
+    private val delegate: InterventionPresenter,
+) : InterventionPresenter {
+    var presentationCount = 0
+    override fun present(intervention: ProtectionDecision.Intervene) {
+        presentationCount += 1
+        delegate.present(intervention)
     }
 }
 

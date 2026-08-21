@@ -70,9 +70,13 @@ class AndroidTemporaryUseExpiryScheduler(
 class AndroidForegroundEventHandler(
     private val monitor: ForegroundAppMonitor,
 ) {
+    private var foregroundPackageName: String? = null
+
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val packageName = event.packageName?.toString() ?: return
+        if (packageName == foregroundPackageName) return
+        foregroundPackageName = packageName
         monitor.onAppEnteredForeground(packageName)
     }
 }
