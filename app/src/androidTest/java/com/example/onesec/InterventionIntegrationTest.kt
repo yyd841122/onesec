@@ -1,7 +1,6 @@
 package com.example.onesec
 
 import android.view.accessibility.AccessibilityEvent
-import android.view.KeyEvent
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
@@ -9,6 +8,8 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -54,8 +55,21 @@ class InterventionIntegrationTest {
         composeRule.onNodeWithText("下次重置：08月22日 00:00").assertIsDisplayed()
         composeRule.onNodeWithText("返回桌面").assertIsDisplayed()
 
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        composeRule.waitUntilDoesNotExist(hasText("强限制已生效"), timeoutMillis = 5_000)
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<InterventionActivity>()
+                .single()
+            activity.onBackPressedDispatcher.onBackPressed()
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            check(
+                ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED)
+                    .none { it is InterventionActivity },
+            )
+        }
     }
 }
 
