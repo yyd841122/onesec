@@ -14,6 +14,7 @@ class OneSecAccessibilityService : AccessibilityService() {
             protectionStatus = {
                 permissionGuidanceState(permissionGateway.readPermissions()).protectionAvailable
             },
+            exhaustedAllowances = SharedPreferencesExhaustedAllowanceStore(this),
             decisionEngine = DefaultRestrictionDecisionEngine,
             presenter = AndroidInterventionPresenter(this),
             clock = clock,

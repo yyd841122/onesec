@@ -36,6 +36,7 @@ class InterventionIntegrationTest {
             ruleStore = IntegrationRuleStore(rule),
             usageLookup = TodayUsageLookup { _, _ -> 30 },
             protectionStatus = { true },
+            exhaustedAllowances = IntegrationExhaustedAllowanceStore(),
             decisionEngine = DefaultRestrictionDecisionEngine,
             presenter = AndroidInterventionPresenter(context),
             clock = Clock.fixed(now, zoneId),
@@ -71,6 +72,12 @@ class InterventionIntegrationTest {
             )
         }
     }
+}
+
+private class IntegrationExhaustedAllowanceStore : ExhaustedAllowanceStore {
+    override fun isExhausted(packageName: String, localDate: java.time.LocalDate) = false
+
+    override fun markExhausted(packageName: String, localDate: java.time.LocalDate) = Unit
 }
 
 private class IntegrationRuleStore(

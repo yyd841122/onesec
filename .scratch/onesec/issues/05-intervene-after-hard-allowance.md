@@ -18,3 +18,4 @@
 ## Comments
 
 - 2026-08-21: Implemented the framework-free protection decision engine, accessibility foreground monitoring, hard-restriction intervention Activity, local-midnight reset display, and return-home action. Automated unit and Android integration coverage was added; no Android device was connected for an instrumentation run.
+- 2026-08-21: Fixed intermittent re-entry after an intervention by persisting an exhausted-allowance latch per restricted app and local date, so temporarily stale UsageStats data cannot relax a hard restriction. The regression and persistence tests passed on PCAM00.
