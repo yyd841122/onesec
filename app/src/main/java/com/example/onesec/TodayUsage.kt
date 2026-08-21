@@ -3,6 +3,7 @@ package com.example.onesec
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 
 enum class UsageEventType {
     FOREGROUND,
@@ -54,13 +55,11 @@ class TodayUsageController(
         }
 
         val now = clock.instant()
-        val todayStart = now.atZone(clock.zone).toLocalDate().atStartOfDay(clock.zone).toInstant()
         val events = usageEvents.eventsBetween(Instant.EPOCH, now)
         state = TodayUsageState(
             protectionAvailable = true,
             apps = rules.map { rule ->
-                val usedMillis = foregroundMillis(rule.packageName, events, todayStart, now)
-                val usedMinutes = if (usedMillis == 0L) 0 else ((usedMillis + 59_999L) / 60_000L).toInt()
+                val usedMinutes = usedTodayMinutes(rule.packageName, events, now, clock.zone)
                 TodayAppUsage(
                     packageName = rule.packageName,
                     displayName = rule.displayName,
@@ -70,6 +69,17 @@ class TodayUsageController(
             },
         )
     }
+}
+
+fun usedTodayMinutes(
+    packageName: String,
+    events: List<UsageEvent>,
+    now: Instant,
+    zoneId: ZoneId,
+): Int {
+    val todayStart = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
+    val usedMillis = foregroundMillis(packageName, events, todayStart, now)
+    return if (usedMillis == 0L) 0 else ((usedMillis + 59_999L) / 60_000L).toInt()
 }
 
 private fun foregroundMillis(
