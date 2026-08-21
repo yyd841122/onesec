@@ -101,6 +101,7 @@ class RestrictionSetupController(
     private val appCatalog: AppCatalog,
     private val ruleStore: RestrictionPolicyStore,
     private val clock: Clock = Clock.systemDefaultZone(),
+    private val onRuleSaved: () -> Unit = {},
 ) {
     var state = readState()
         private set
@@ -154,6 +155,7 @@ class RestrictionSetupController(
                 ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
             }
         }
+        onRuleSaved()
         state = readState(apps = state.apps)
     }
 
@@ -176,6 +178,7 @@ class RestrictionSetupController(
             }
         }
         state = readState(apps = state.apps)
+        onRuleSaved()
     }
 
     fun removeRule(packageName: String) {

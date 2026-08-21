@@ -1,6 +1,7 @@
 package com.example.onesec
 
 import androidx.compose.runtime.CompositionLocalProvider
+import android.provider.Settings
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -74,6 +75,40 @@ class PermissionGuidanceScreenTest {
         }
 
         composeRule.onNodeWithText("保护可用").assertIsDisplayed()
+    }
+
+    @Test
+    fun colorOsBackgroundGuidanceOpensBatteryAndAppSettings() {
+        var batterySettingsOpenCount = 0
+        var appSettingsOpenCount = 0
+
+        composeRule.setContent {
+            OneSecApp(
+                state = permissionGuidanceState(PermissionSnapshot(true, true)),
+                onOpenUsageAccessSettings = {},
+                onOpenAccessibilitySettings = {},
+                onOpenBatteryOptimizationSettings = { batterySettingsOpenCount += 1 },
+                onOpenBackgroundRunSettings = { appSettingsOpenCount += 1 },
+            )
+        }
+
+        composeRule.onNodeWithText("OPPO / ColorOS 后台保护").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("允许 OneSec 后台运行和自启动，并关闭电池优化。")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("打开电池优化设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("打开 OneSec 应用设置").performScrollTo().performClick()
+
+        assertEquals(1, batterySettingsOpenCount)
+        assertEquals(1, appSettingsOpenCount)
+    }
+
+    @Test
+    fun batteryOptimizationIntentTargetsOneSecDirectly() {
+        val intent = batteryOptimizationIntent("com.example.onesec")
+
+        assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, intent.action)
+        assertEquals("package:com.example.onesec", intent.data.toString())
     }
 }
 

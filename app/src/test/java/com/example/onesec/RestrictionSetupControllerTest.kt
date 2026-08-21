@@ -28,7 +28,8 @@ class RestrictionSetupControllerTest {
             listOf(InstalledApp("com.example.video", "短视频")),
         )
         val rules = FakeRestrictionRuleStore()
-        val controller = RestrictionSetupController(catalog, rules)
+        var recoveryRequests = 0
+        val controller = RestrictionSetupController(catalog, rules) { recoveryRequests += 1 }
 
         controller.openAppCatalog()
         assertEquals(listOf("短视频"), controller.state.apps.map { it.displayName })
@@ -51,6 +52,7 @@ class RestrictionSetupControllerTest {
         )
         assertEquals(rules.savedRules, controller.state.savedRules)
         assertNull(controller.state.editor)
+        assertEquals(1, recoveryRequests)
     }
 
     @Test

@@ -43,6 +43,18 @@ class PermissionGuidanceControllerTest {
         assertTrue(controller.state.protectionAvailable)
         assertEquals(2, gateway.readCount)
     }
+
+    @Test
+    fun `failed boot recovery is shown as protection needing repair`() {
+        val state = permissionGuidanceState(
+            snapshot = PermissionSnapshot(true, true),
+            recoveryHealth = RecoveryHealth.NEEDS_REPAIR,
+        )
+
+        assertFalse(state.protectionAvailable)
+        assertEquals("保护需要修复", state.protectionStatus)
+        assertEquals("系统未能在重启后恢复保护，请检查后台运行设置。", state.statusExplanation)
+    }
 }
 
 private class FakePermissionGateway(

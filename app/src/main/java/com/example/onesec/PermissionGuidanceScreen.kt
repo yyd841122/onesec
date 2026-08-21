@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 
 @Composable
 fun PermissionGuidanceRoute(
@@ -34,6 +36,19 @@ fun PermissionGuidanceRoute(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var state by remember(controller) { mutableStateOf(controller.state) }
+
+    LaunchedEffect(controller, state.recoveryHealth) {
+        if (state.recoveryHealth == RecoveryHealth.NEEDS_REPAIR &&
+            state.usageAccessGranted && state.accessibilityGranted
+        ) {
+            repeat(10) {
+                delay(500)
+                controller.refresh()
+                state = controller.state
+                if (state.recoveryHealth != RecoveryHealth.NEEDS_REPAIR) return@LaunchedEffect
+            }
+        }
+    }
 
     DisposableEffect(lifecycleOwner, controller) {
         val observer = LifecycleEventObserver { _, event ->
@@ -50,6 +65,8 @@ fun PermissionGuidanceRoute(
         state = state,
         onOpenUsageAccessSettings = controller::openUsageAccessSettings,
         onOpenAccessibilitySettings = controller::openAccessibilitySettings,
+        onOpenBatteryOptimizationSettings = controller::openBatteryOptimizationSettings,
+        onOpenBackgroundRunSettings = controller::openBackgroundRunSettings,
         onSelectRestrictedApp = onSelectRestrictedApp,
         onOpenToday = onOpenToday,
     )
@@ -60,6 +77,8 @@ fun OneSecApp(
     state: PermissionGuidanceState,
     onOpenUsageAccessSettings: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenBatteryOptimizationSettings: () -> Unit = {},
+    onOpenBackgroundRunSettings: () -> Unit = {},
     onSelectRestrictedApp: () -> Unit = {},
     onOpenToday: () -> Unit = {},
 ) {
@@ -88,11 +107,7 @@ fun OneSecApp(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = if (state.usageDataReliable) {
-                        "两项核心权限均有效，使用数据可靠。"
-                    } else {
-                        "使用数据不可靠：请修复下方缺失的核心权限。"
-                    },
+                    text = state.statusExplanation,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (state.usageDataReliable) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -107,6 +122,28 @@ fun OneSecApp(
                     buttonLabel = "打开使用情况访问设置",
                     onOpenSettings = onOpenUsageAccessSettings,
                 )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("OPPO / ColorOS 后台保护", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "允许 OneSec 后台运行和自启动，并关闭电池优化。",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            "在 ColorOS 11.1 中，还请在应用管理中允许自启动、关联启动和后台活动。",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(onClick = onOpenBatteryOptimizationSettings) {
+                            Text("打开电池优化设置")
+                        }
+                        Button(onClick = onOpenBackgroundRunSettings) {
+                            Text("打开 OneSec 应用设置")
+                        }
+                    }
+                }
                 PermissionCard(
                     title = "无障碍权限",
                     explanation = "无障碍权限用于识别当前应用并触发拦截。",

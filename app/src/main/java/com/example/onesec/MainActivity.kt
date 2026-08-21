@@ -10,10 +10,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val permissionGateway = AndroidPermissionGateway(this)
         val ruleStore = SharedPreferencesRestrictionRuleStore(this)
-        val permissionController = PermissionGuidanceController(permissionGateway)
+        val recoveryCoordinator = MonitoringRecoveryCoordinator(applicationContext)
+        val permissionController = PermissionGuidanceController(
+            permissionGateway,
+            SharedPreferencesRecoveryHealthStore(this),
+        )
         val restrictionController = RestrictionSetupController(
             appCatalog = AndroidAppCatalog(this),
             ruleStore = ruleStore,
+            onRuleSaved = recoveryCoordinator::restore,
         )
         val todayUsageController = TodayUsageController(
             ruleStore = ruleStore,
@@ -24,5 +29,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             OneSecRoot(permissionController, restrictionController, todayUsageController)
         }
+        recoveryCoordinator.restore()
     }
 }

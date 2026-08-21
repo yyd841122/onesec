@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Process
 import android.provider.Settings
 
@@ -22,6 +23,23 @@ class AndroidPermissionGateway(
 
     override fun openAccessibilitySettings() {
         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    override fun openBatteryOptimizationSettings() {
+        runCatching {
+            context.startActivity(batteryOptimizationIntent(context.packageName))
+        }.onFailure {
+            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
+    }
+
+    override fun openBackgroundRunSettings() {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}"),
+            ),
+        )
     }
 
     private fun hasUsageAccess(): Boolean {
@@ -51,3 +69,8 @@ class AndroidPermissionGateway(
             .any { it.equals(serviceName, ignoreCase = true) }
     }
 }
+
+internal fun batteryOptimizationIntent(packageName: String): Intent = Intent(
+    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+    Uri.parse("package:$packageName"),
+)
