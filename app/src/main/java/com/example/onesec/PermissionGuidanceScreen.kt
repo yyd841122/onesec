@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 fun PermissionGuidanceRoute(
     controller: PermissionGuidanceController,
     onSelectRestrictedApp: () -> Unit = {},
+    onOpenToday: () -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var state by remember(controller) { mutableStateOf(controller.state) }
@@ -50,6 +51,7 @@ fun PermissionGuidanceRoute(
         onOpenUsageAccessSettings = controller::openUsageAccessSettings,
         onOpenAccessibilitySettings = controller::openAccessibilitySettings,
         onSelectRestrictedApp = onSelectRestrictedApp,
+        onOpenToday = onOpenToday,
     )
 }
 
@@ -59,6 +61,7 @@ fun OneSecApp(
     onOpenUsageAccessSettings: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onSelectRestrictedApp: () -> Unit = {},
+    onOpenToday: () -> Unit = {},
 ) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -113,6 +116,9 @@ fun OneSecApp(
                 )
                 Button(onClick = onSelectRestrictedApp) {
                     Text("选择受限应用")
+                }
+                Button(onClick = onOpenToday) {
+                    Text("查看今日概览")
                 }
             }
         }
