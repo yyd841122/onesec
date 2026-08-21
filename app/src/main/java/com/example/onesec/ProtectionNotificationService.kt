@@ -19,7 +19,10 @@ class ProtectionNotificationService : Service() {
         healthStore.writeRecoveryHealth(RecoveryHealth.MONITORING)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        healthStore.writeRecoveryHealth(RecoveryHealth.MONITORING)
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         if (SharedPreferencesRestrictionRuleStore(this).loadRules().isNotEmpty()) {

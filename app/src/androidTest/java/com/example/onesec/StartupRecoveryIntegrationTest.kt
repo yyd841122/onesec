@@ -70,16 +70,27 @@ class StartupRecoveryIntegrationTest {
         )
         val healthStore = SharedPreferencesRecoveryHealthStore(context)
 
-        MonitoringRecoveryCoordinator(
+        val coordinator = MonitoringRecoveryCoordinator(
             context = context,
             ruleStore = ruleStore,
             permissionSnapshot = { PermissionSnapshot(true, true) },
             healthStore = healthStore,
-        ).restore()
+        )
+        coordinator.restore()
 
         val deadline = SystemClock.uptimeMillis() + 2_000
         while (healthStore.readRecoveryHealth() != RecoveryHealth.MONITORING &&
             SystemClock.uptimeMillis() < deadline
+        ) {
+            SystemClock.sleep(25)
+        }
+        assertEquals(RecoveryHealth.MONITORING, healthStore.readRecoveryHealth())
+
+        healthStore.writeRecoveryHealth(RecoveryHealth.NEEDS_REPAIR)
+        coordinator.restore()
+        val restartDeadline = SystemClock.uptimeMillis() + 2_000
+        while (healthStore.readRecoveryHealth() != RecoveryHealth.MONITORING &&
+            SystemClock.uptimeMillis() < restartDeadline
         ) {
             SystemClock.sleep(25)
         }
