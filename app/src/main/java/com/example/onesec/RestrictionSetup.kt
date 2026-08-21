@@ -22,6 +22,7 @@ data class DailyAllowance private constructor(
 ) {
     companion object {
         val DEFAULT_HARD = DailyAllowance(30)
+        val DEFAULT_SOFT = DailyAllowance(60)
 
         fun ofMinutes(minutes: Int): DailyAllowance = DailyAllowance(minutes.coerceIn(5, 1_440))
     }
@@ -125,6 +126,15 @@ class RestrictionSetupController(
     fun changeDailyAllowance(minutes: Int) {
         val editor = state.editor ?: return
         state = state.copy(editor = editor.copy(dailyAllowance = DailyAllowance.ofMinutes(minutes)))
+    }
+
+    fun changeRestrictionLevel(level: RestrictionLevel) {
+        val editor = state.editor ?: return
+        val defaultAllowance = when (level) {
+            RestrictionLevel.SOFT -> DailyAllowance.DEFAULT_SOFT
+            RestrictionLevel.HARD -> DailyAllowance.DEFAULT_HARD
+        }
+        state = state.copy(editor = editor.copy(level = level, dailyAllowance = defaultAllowance))
     }
 
     fun saveRule() {

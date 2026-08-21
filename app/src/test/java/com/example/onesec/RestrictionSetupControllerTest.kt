@@ -9,6 +9,20 @@ import java.time.ZoneOffset
 
 class RestrictionSetupControllerTest {
     @Test
+    fun `user can choose a soft restriction with its sixty minute default`() {
+        val controller = RestrictionSetupController(
+            FakeAppCatalog(listOf(InstalledApp("com.example.video", "短视频"))),
+            FakeRestrictionRuleStore(),
+        )
+
+        controller.openAppCatalog()
+        controller.selectApp("com.example.video")
+        controller.changeRestrictionLevel(RestrictionLevel.SOFT)
+
+        assertEquals(RestrictionLevel.SOFT, controller.state.editor?.level)
+        assertEquals(DailyAllowance.ofMinutes(60), controller.state.editor?.dailyAllowance)
+    }
+    @Test
     fun `catalog excludes OneSec and unsuitable system entry points`() {
         val candidates = listOf(
             AppCandidate("com.example.onesec", "OneSec", isSystemApp = false, isHomeApp = false),

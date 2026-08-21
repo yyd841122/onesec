@@ -40,6 +40,23 @@ class RestrictionSetupScreenTest {
     }
 
     @Test
+    fun userCanSaveASoftRestrictionWithTheSixtyMinuteDefault() {
+        val controller = RestrictionSetupController(
+            appCatalog = ScreenAppCatalog(listOf(InstalledApp("com.example.video", "短视频"))),
+            ruleStore = ScreenRuleStore(),
+        )
+        composeRule.setContent { RestrictionSetupRoute(controller, onBack = {}) }
+
+        composeRule.onNodeWithText("选择受限应用").performClick()
+        composeRule.onNodeWithText("短视频").performClick()
+        composeRule.onNodeWithText("弱限制").performClick()
+        composeRule.onNodeWithText("60 分钟").assertIsDisplayed()
+        composeRule.onNodeWithText("保存弱限制").performClick()
+
+        composeRule.onNodeWithText("弱限制 · 每日 60 分钟").assertIsDisplayed()
+    }
+
+    @Test
     fun currentRuleAndTomorrowRelaxationAreClearlySeparated() {
         val current = RestrictedAppRule(
             "com.example.video",

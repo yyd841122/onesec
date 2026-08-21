@@ -64,3 +64,53 @@ class RestrictionDecisionEngineTest(
         )
     }
 }
+
+class SoftRestrictionDecisionEngineTest {
+    private val app = InstalledApp("com.example.video", "短视频")
+    private val rule = RestrictedAppRule(
+        packageName = app.packageName,
+        displayName = app.displayName,
+        level = RestrictionLevel.SOFT,
+        dailyAllowance = DailyAllowance.ofMinutes(60),
+    )
+    private val now = Instant.parse("2026-08-21T04:00:00Z")
+
+    @Test
+    fun `soft restriction requires waiting once its allowance is exhausted`() {
+        assertEquals(
+            ProtectionDecision.Intervene(app, 60, Instant.parse("2026-08-21T16:00:00Z"), RestrictionLevel.SOFT),
+            decide(usedMinutes = 60),
+        )
+    }
+
+    @Test
+    fun `soft restriction allows use strictly inside its access window`() {
+        assertEquals(ProtectionDecision.Allow, decide(60, now.plusSeconds(1)))
+        assertEquals(
+            ProtectionDecision.Intervene(app, 60, Instant.parse("2026-08-21T16:00:00Z"), RestrictionLevel.SOFT),
+            decide(60, now),
+        )
+        assertEquals(
+            ProtectionDecision.Intervene(app, 60, Instant.parse("2026-08-21T16:00:00Z"), RestrictionLevel.SOFT),
+            decide(60, now.minusSeconds(1)),
+        )
+    }
+
+    @Test
+    fun `soft restriction adds no friction before its allowance`() {
+        assertEquals(ProtectionDecision.Allow, decide(59))
+    }
+
+    private fun decide(usedMinutes: Int, accessWindowEndsAt: Instant? = null) =
+        DefaultRestrictionDecisionEngine.decide(
+            RestrictionDecisionRequest(
+                now = now,
+                zoneId = ZoneId.of("Asia/Shanghai"),
+                restrictedApp = app,
+                usedMinutes = usedMinutes,
+                rule = rule,
+                protectionAvailable = true,
+                accessWindowEndsAt = accessWindowEndsAt,
+            ),
+        )
+}

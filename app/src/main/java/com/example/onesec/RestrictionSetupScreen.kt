@@ -56,6 +56,10 @@ fun RestrictionSetupRoute(
             controller.changeDailyAllowance(minutes)
             state = controller.state
         },
+        onChangeLevel = { level ->
+            controller.changeRestrictionLevel(level)
+            state = controller.state
+        },
         onSave = {
             controller.saveRule()
             state = controller.state
@@ -87,6 +91,7 @@ private fun RestrictionSetupScreen(
     onOpenCatalog: () -> Unit,
     onSelectApp: (String) -> Unit,
     onChangeAllowance: (Int) -> Unit,
+    onChangeLevel: (RestrictionLevel) -> Unit,
     onSave: () -> Unit,
     onTightenToHard: (String) -> Unit,
     onRemoveRule: (String) -> Unit,
@@ -108,6 +113,7 @@ private fun RestrictionSetupScreen(
                     state.editor != null -> RestrictionEditor(
                         editor = state.editor,
                         onChangeAllowance = onChangeAllowance,
+                        onChangeLevel = onChangeLevel,
                         onSave = onSave,
                         onCancelSelection = onCancelSelection,
                     )
@@ -230,6 +236,7 @@ private fun AppCatalogList(
 private fun RestrictionEditor(
     editor: RestrictionEditorState,
     onChangeAllowance: (Int) -> Unit,
+    onChangeLevel: (RestrictionLevel) -> Unit,
     onSave: () -> Unit,
     onCancelSelection: () -> Unit,
 ) {
@@ -240,6 +247,14 @@ private fun RestrictionEditor(
         AppIcon(editor.app)
         Column {
             Text(editor.app.displayName, style = MaterialTheme.typography.titleLarge)
+            Text(if (editor.level == RestrictionLevel.SOFT) "弱限制" else "强限制")
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedButton(onClick = { onChangeLevel(RestrictionLevel.SOFT) }) {
+            Text("弱限制")
+        }
+        OutlinedButton(onClick = { onChangeLevel(RestrictionLevel.HARD) }) {
             Text("强限制")
         }
     }
@@ -258,7 +273,7 @@ private fun RestrictionEditor(
         }
     }
     Button(onClick = onSave) {
-        Text("保存强限制")
+        Text(if (editor.level == RestrictionLevel.SOFT) "保存弱限制" else "保存强限制")
     }
     OutlinedButton(onClick = onCancelSelection) {
         Text("取消选择")

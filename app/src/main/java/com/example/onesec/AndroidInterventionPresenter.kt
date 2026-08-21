@@ -21,6 +21,7 @@ object AndroidInterventionIntent {
         .putExtra(EXTRA_DISPLAY_NAME, intervention.app.displayName)
         .putExtra(EXTRA_USED_MINUTES, intervention.usedMinutes)
         .putExtra(EXTRA_RESETS_AT, intervention.resetsAt.toEpochMilli())
+        .putExtra(EXTRA_LEVEL, intervention.level.name)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
     fun read(intent: Intent): ProtectionDecision.Intervene = ProtectionDecision.Intervene(
@@ -30,10 +31,14 @@ object AndroidInterventionIntent {
         ),
         usedMinutes = intent.getIntExtra(EXTRA_USED_MINUTES, 0),
         resetsAt = Instant.ofEpochMilli(intent.getLongExtra(EXTRA_RESETS_AT, 0)),
+        level = intent.getStringExtra(EXTRA_LEVEL)
+            ?.let { runCatching { RestrictionLevel.valueOf(it) }.getOrNull() }
+            ?: RestrictionLevel.HARD,
     )
 
     private const val EXTRA_PACKAGE_NAME = "restricted_package_name"
     private const val EXTRA_DISPLAY_NAME = "restricted_display_name"
     private const val EXTRA_USED_MINUTES = "used_minutes"
     private const val EXTRA_RESETS_AT = "resets_at"
+    private const val EXTRA_LEVEL = "restriction_level"
 }

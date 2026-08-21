@@ -25,8 +25,29 @@ fun interface ProtectionStatusProvider {
     fun protectionAvailable(): Boolean
 }
 
+fun currentForegroundPackage(events: List<UsageEvent>): String? {
+    val activeActivities = mutableMapOf<Pair<String?, String>, Instant>()
+    events.sortedBy(UsageEvent::timestamp).forEach { event ->
+        val activity = event.packageName to event.activityId
+        when (event.type) {
+            UsageEventType.FOREGROUND -> activeActivities[activity] = event.timestamp
+            UsageEventType.BACKGROUND -> activeActivities.remove(activity)
+            UsageEventType.SCREEN_LOCKED,
+            UsageEventType.SCREEN_UNLOCKED,
+            -> Unit
+        }
+    }
+    return activeActivities.maxByOrNull { it.value }?.key?.first
+}
+
 fun interface InterventionPresenter {
     fun present(intervention: ProtectionDecision.Intervene)
+}
+
+interface AccessWindowExpiryScheduler {
+    fun schedule(packageName: String, endsAt: Instant, onExpired: () -> Unit)
+
+    fun cancel(packageName: String)
 }
 
 interface ExhaustedAllowanceStore {
@@ -43,8 +64,16 @@ class ForegroundAppMonitor(
     private val decisionEngine: RestrictionDecisionEngine,
     private val presenter: InterventionPresenter,
     private val clock: Clock,
+    private val accessWindows: AccessWindowStore? = null,
+    private val expiryScheduler: AccessWindowExpiryScheduler? = null,
 ) {
+    private var scheduledPackageName: String? = null
+
     fun onAppEnteredForeground(packageName: String): ProtectionDecision {
+        scheduledPackageName?.takeIf { it != packageName }?.let { previousPackageName ->
+            expiryScheduler?.cancel(previousPackageName)
+            scheduledPackageName = null
+        }
         val rule = ruleStore.loadRules().firstOrNull { it.packageName == packageName }
             ?: return ProtectionDecision.Allow
         val now = clock.instant()
@@ -60,6 +89,7 @@ class ForegroundAppMonitor(
         } else {
             reportedUsedMinutes
         }
+        val accessWindowEndsAt = accessWindows?.endsAt(packageName)
         val decision = decisionEngine.decide(
             RestrictionDecisionRequest(
                 now = now,
@@ -68,11 +98,23 @@ class ForegroundAppMonitor(
                 usedMinutes = usedMinutes,
                 rule = rule,
                 protectionAvailable = protectionAvailable,
+                accessWindowEndsAt = accessWindowEndsAt,
             ),
         )
         if (decision is ProtectionDecision.Intervene) {
             exhaustedAllowances.markExhausted(packageName, localDate)
             presenter.present(decision)
+        } else if (
+            decision == ProtectionDecision.Allow &&
+            rule.level == RestrictionLevel.SOFT &&
+            usedMinutes >= rule.dailyAllowance.minutes &&
+            accessWindowEndsAt?.isAfter(now) == true
+        ) {
+            scheduledPackageName = packageName
+            expiryScheduler?.schedule(packageName, accessWindowEndsAt) {
+                scheduledPackageName = null
+                onAppEnteredForeground(packageName)
+            }
         }
         return decision
     }
