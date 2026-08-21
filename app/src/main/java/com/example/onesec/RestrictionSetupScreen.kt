@@ -60,6 +60,18 @@ fun RestrictionSetupRoute(
             controller.saveRule()
             state = controller.state
         },
+        onTightenToHard = { packageName ->
+            controller.tightenToHardRestriction(packageName)
+            state = controller.state
+        },
+        onRemoveRule = { packageName ->
+            controller.removeRule(packageName)
+            state = controller.state
+        },
+        onDisableProtection = {
+            controller.disableProtection()
+            state = controller.state
+        },
         onCancelSelection = {
             controller.cancelSelection()
             state = controller.state
@@ -76,6 +88,9 @@ private fun RestrictionSetupScreen(
     onSelectApp: (String) -> Unit,
     onChangeAllowance: (Int) -> Unit,
     onSave: () -> Unit,
+    onTightenToHard: (String) -> Unit,
+    onRemoveRule: (String) -> Unit,
+    onDisableProtection: () -> Unit,
     onCancelSelection: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -97,7 +112,15 @@ private fun RestrictionSetupScreen(
                         onCancelSelection = onCancelSelection,
                     )
                     showingCatalog -> AppCatalogList(state.apps, onSelectApp)
-                    else -> RestrictionSummary(state.savedRules, onOpenCatalog)
+                    else -> RestrictionSummary(
+                        savedRules = state.savedRules,
+                        pendingRelaxations = state.pendingRelaxations,
+                        protectionEnabled = state.protectionEnabled,
+                        onOpenCatalog = onOpenCatalog,
+                        onTightenToHard = onTightenToHard,
+                        onRemoveRule = onRemoveRule,
+                        onDisableProtection = onDisableProtection,
+                    )
                 }
 
                 OutlinedButton(onClick = onBack) {
@@ -111,8 +134,17 @@ private fun RestrictionSetupScreen(
 @Composable
 private fun RestrictionSummary(
     savedRules: List<RestrictedAppRule>,
+    pendingRelaxations: List<PendingRelaxation>,
+    protectionEnabled: Boolean,
     onOpenCatalog: () -> Unit,
+    onTightenToHard: (String) -> Unit,
+    onRemoveRule: (String) -> Unit,
+    onDisableProtection: () -> Unit,
 ) {
+    Text("当前生效规则", style = MaterialTheme.typography.titleLarge)
+    if (!protectionEnabled) {
+        Text("保护已关闭", color = MaterialTheme.colorScheme.error)
+    }
     if (savedRules.isEmpty()) {
         Text("尚未选择受限应用", style = MaterialTheme.typography.bodyLarge)
     } else {
@@ -124,8 +156,16 @@ private fun RestrictionSummary(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(savedRule.displayName, style = MaterialTheme.typography.titleLarge)
-                    Text("强限制 · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
+                    Text("${savedRule.level.displayName} · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
                     Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (savedRule.level == RestrictionLevel.SOFT) {
+                        Button(onClick = { onTightenToHard(savedRule.packageName) }) {
+                            Text("立即改为强限制")
+                        }
+                    }
+                    OutlinedButton(onClick = { onRemoveRule(savedRule.packageName) }) {
+                        Text("次日删除强限制")
+                    }
                 }
             }
         }
@@ -133,6 +173,37 @@ private fun RestrictionSummary(
     Button(onClick = onOpenCatalog) {
         Text("选择受限应用")
     }
+    if (protectionEnabled) {
+        OutlinedButton(onClick = onDisableProtection) {
+            Text("次日关闭保护")
+        }
+    }
+    if (pendingRelaxations.isNotEmpty()) {
+        Text("次日即将生效", style = MaterialTheme.typography.titleLarge)
+        pendingRelaxations.forEach { pending ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = pending.displayText(),
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+        }
+    }
+}
+
+private val RestrictionLevel.displayName: String
+    get() = when (this) {
+        RestrictionLevel.SOFT -> "弱限制"
+        RestrictionLevel.HARD -> "强限制"
+    }
+
+private fun PendingRelaxation.displayText(): String = when (this) {
+    is PendingRelaxation.ReplaceRule ->
+        "${replacement.displayName}：每日额度调整为 ${replacement.dailyAllowance.minutes} 分钟（$effectiveDate 生效）"
+    is PendingRelaxation.RemoveRule ->
+        "${app.displayName}：删除强限制（$effectiveDate 生效）"
+    is PendingRelaxation.DisableProtection -> "关闭保护（$effectiveDate 生效）"
 }
 
 @Composable

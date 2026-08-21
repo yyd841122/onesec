@@ -3,6 +3,9 @@ package com.example.onesec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 class RestrictionSetupControllerTest {
     @Test
@@ -99,6 +102,88 @@ class RestrictionSetupControllerTest {
         )
         assertNull(controller.state.editor)
     }
+
+    @Test
+    fun `increasing allowance keeps current rule and shows tomorrow pending relaxation`() {
+        val current = RestrictedAppRule(
+            "com.example.video",
+            "短视频",
+            RestrictionLevel.HARD,
+            DailyAllowance.ofMinutes(30),
+        )
+        val rules = FakeRestrictionRuleStore(current)
+        val controller = RestrictionSetupController(
+            appCatalog = FakeAppCatalog(listOf(InstalledApp(current.packageName, current.displayName))),
+            ruleStore = rules,
+            clock = Clock.fixed(Instant.parse("2026-08-21T10:00:00Z"), ZoneOffset.UTC),
+        )
+
+        controller.openAppCatalog()
+        controller.selectApp(current.packageName)
+        controller.changeDailyAllowance(45)
+        controller.saveRule()
+
+        assertEquals(listOf(current), controller.state.savedRules)
+        assertEquals(
+            listOf(
+                PendingRelaxation.ReplaceRule(
+                    current.copy(dailyAllowance = DailyAllowance.ofMinutes(45)),
+                    java.time.LocalDate.of(2026, 8, 22),
+                ),
+            ),
+            controller.state.pendingRelaxations,
+        )
+    }
+
+    @Test
+    fun `removing hard restriction and disabling protection stay pending today`() {
+        val current = RestrictedAppRule(
+            "com.example.video",
+            "短视频",
+            RestrictionLevel.HARD,
+            DailyAllowance.ofMinutes(30),
+        )
+        val rules = FakeRestrictionRuleStore(current)
+        val controller = RestrictionSetupController(
+            appCatalog = FakeAppCatalog(emptyList()),
+            ruleStore = rules,
+            clock = Clock.fixed(Instant.parse("2026-08-21T10:00:00Z"), ZoneOffset.UTC),
+        )
+
+        controller.removeRule(current.packageName)
+        controller.disableProtection()
+
+        assertEquals(listOf(current), controller.state.savedRules)
+        assertEquals(2, controller.state.pendingRelaxations.size)
+        assertEquals(true, controller.state.protectionEnabled)
+    }
+
+    @Test
+    fun `immediate tightening cancels an older pending relaxation for the same app`() {
+        val current = RestrictedAppRule(
+            "com.example.video",
+            "短视频",
+            RestrictionLevel.HARD,
+            DailyAllowance.ofMinutes(30),
+        )
+        val rules = FakeRestrictionRuleStore(current)
+        val controller = RestrictionSetupController(
+            appCatalog = FakeAppCatalog(listOf(InstalledApp(current.packageName, current.displayName))),
+            ruleStore = rules,
+        )
+
+        controller.openAppCatalog()
+        controller.selectApp(current.packageName)
+        controller.changeDailyAllowance(45)
+        controller.saveRule()
+        controller.openAppCatalog()
+        controller.selectApp(current.packageName)
+        controller.changeDailyAllowance(20)
+        controller.saveRule()
+
+        assertEquals(20, controller.state.savedRules.single().dailyAllowance.minutes)
+        assertEquals(emptyList<PendingRelaxation>(), controller.state.pendingRelaxations)
+    }
 }
 
 private class FakeAppCatalog(
@@ -109,10 +194,11 @@ private class FakeAppCatalog(
 
 private class FakeRestrictionRuleStore(
     initialRule: RestrictedAppRule? = null,
-) : RestrictionRuleStore {
+) : RestrictionPolicyStore {
     val savedRules = mutableListOf<RestrictedAppRule>().apply {
         if (initialRule != null) add(initialRule)
     }
+    val pendingRelaxations = mutableListOf<PendingRelaxation>()
 
     override fun loadRules(): List<RestrictedAppRule> = savedRules.toList()
 
@@ -120,4 +206,41 @@ private class FakeRestrictionRuleStore(
         savedRules.removeAll { it.packageName == rule.packageName }
         savedRules.add(rule)
     }
+
+    override fun loadPendingRelaxations(): List<PendingRelaxation> = pendingRelaxations.toList()
+
+    override fun schedulePendingRelaxation(pendingRelaxation: PendingRelaxation) {
+        pendingRelaxations.removeAll { existing ->
+            when {
+                existing is PendingRelaxation.DisableProtection &&
+                    pendingRelaxation is PendingRelaxation.DisableProtection -> true
+                existing is PendingRelaxation.ReplaceRule &&
+                    pendingRelaxation is PendingRelaxation.ReplaceRule ->
+                    existing.replacement.packageName == pendingRelaxation.replacement.packageName
+                existing is PendingRelaxation.RemoveRule &&
+                    pendingRelaxation is PendingRelaxation.RemoveRule ->
+                    existing.app.packageName == pendingRelaxation.app.packageName
+                else -> false
+            }
+        }
+        pendingRelaxations.add(pendingRelaxation)
+    }
+
+    override fun cancelPendingRelaxation(packageName: String) {
+        pendingRelaxations.removeAll { pending ->
+            when (pending) {
+                is PendingRelaxation.ReplaceRule -> pending.replacement.packageName == packageName
+                is PendingRelaxation.RemoveRule -> pending.app.packageName == packageName
+                is PendingRelaxation.DisableProtection -> false
+            }
+        }
+    }
+
+    override fun removeRule(packageName: String) {
+        savedRules.removeAll { it.packageName == packageName }
+    }
+
+    override fun isProtectionEnabled(): Boolean = true
+
+    override fun disableProtection() = Unit
 }

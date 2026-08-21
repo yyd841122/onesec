@@ -1,5 +1,8 @@
 package com.example.onesec
 
+import java.time.Clock
+import java.time.LocalDate
+
 data class InstalledApp(
     val packageName: String,
     val displayName: String,
@@ -45,6 +48,7 @@ fun manageableApps(
         .sortedBy(InstalledApp::displayName)
 
 enum class RestrictionLevel {
+    SOFT,
     HARD,
 }
 
@@ -65,6 +69,8 @@ data class RestrictionSetupState(
     val apps: List<InstalledApp> = emptyList(),
     val savedRules: List<RestrictedAppRule> = emptyList(),
     val editor: RestrictionEditorState? = null,
+    val pendingRelaxations: List<PendingRelaxation> = emptyList(),
+    val protectionEnabled: Boolean = true,
 )
 
 interface AppCatalog {
@@ -77,11 +83,26 @@ interface RestrictionRuleStore {
     fun saveRule(rule: RestrictedAppRule)
 }
 
+interface RestrictionPolicyStore : RestrictionRuleStore {
+    fun loadPendingRelaxations(): List<PendingRelaxation>
+
+    fun schedulePendingRelaxation(pendingRelaxation: PendingRelaxation)
+
+    fun cancelPendingRelaxation(packageName: String)
+
+    fun removeRule(packageName: String)
+
+    fun isProtectionEnabled(): Boolean
+
+    fun disableProtection()
+}
+
 class RestrictionSetupController(
     private val appCatalog: AppCatalog,
-    private val ruleStore: RestrictionRuleStore,
+    private val ruleStore: RestrictionPolicyStore,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) {
-    var state = RestrictionSetupState(savedRules = ruleStore.loadRules())
+    var state = readState()
         private set
 
     fun openAppCatalog() {
@@ -90,7 +111,14 @@ class RestrictionSetupController(
 
     fun selectApp(packageName: String) {
         val app = state.apps.firstOrNull { it.packageName == packageName } ?: return
-        state = state.copy(editor = RestrictionEditorState(app))
+        val current = state.savedRules.firstOrNull { it.packageName == packageName }
+        state = state.copy(
+            editor = RestrictionEditorState(
+                app = app,
+                level = current?.level ?: RestrictionLevel.HARD,
+                dailyAllowance = current?.dailyAllowance ?: DailyAllowance.DEFAULT_HARD,
+            ),
+        )
     }
 
     fun changeDailyAllowance(minutes: Int) {
@@ -106,16 +134,75 @@ class RestrictionSetupController(
             level = editor.level,
             dailyAllowance = editor.dailyAllowance,
         )
-        ruleStore.saveRule(rule)
-        state = state.copy(
-            savedRules = state.savedRules
-                .filterNot { it.packageName == rule.packageName }
-                .plus(rule),
-            editor = null,
-        )
+        when (
+            val decision = decideRuleChange(
+                RuleChange.Replace(
+                    current = state.savedRules.firstOrNull { it.packageName == rule.packageName },
+                    replacement = rule,
+                ),
+                LocalDate.now(clock),
+            )
+        ) {
+            is RuleChangeDecision.ApplyNow -> {
+                ruleStore.cancelPendingRelaxation(decision.rule.packageName)
+                ruleStore.saveRule(decision.rule)
+            }
+            is RuleChangeDecision.Schedule ->
+                ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+            is RuleChangeDecision.ApplyNowAndSchedule -> {
+                ruleStore.saveRule(decision.immediateRule)
+                ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+            }
+        }
+        state = readState(apps = state.apps)
     }
 
     fun cancelSelection() {
         state = state.copy(editor = null)
     }
+
+    fun tightenToHardRestriction(packageName: String) {
+        val current = state.savedRules.firstOrNull { it.packageName == packageName } ?: return
+        val replacement = current.copy(level = RestrictionLevel.HARD)
+        when (val decision = decideRuleChange(RuleChange.Replace(current, replacement), LocalDate.now(clock))) {
+            is RuleChangeDecision.ApplyNow -> {
+                ruleStore.cancelPendingRelaxation(decision.rule.packageName)
+                ruleStore.saveRule(decision.rule)
+            }
+            is RuleChangeDecision.Schedule -> ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+            is RuleChangeDecision.ApplyNowAndSchedule -> {
+                ruleStore.saveRule(decision.immediateRule)
+                ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+            }
+        }
+        state = readState(apps = state.apps)
+    }
+
+    fun removeRule(packageName: String) {
+        val current = state.savedRules.firstOrNull { it.packageName == packageName } ?: return
+        val decision = decideRuleChange(RuleChange.Remove(current), LocalDate.now(clock))
+        if (decision is RuleChangeDecision.Schedule) {
+            ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+        }
+        state = readState(apps = state.apps)
+    }
+
+    fun disableProtection() {
+        val decision = decideRuleChange(RuleChange.DisableProtection, LocalDate.now(clock))
+        if (decision is RuleChangeDecision.Schedule) {
+            ruleStore.schedulePendingRelaxation(decision.pendingRelaxation)
+        }
+        state = readState(apps = state.apps)
+    }
+
+    fun refresh() {
+        state = readState(apps = state.apps)
+    }
+
+    private fun readState(apps: List<InstalledApp> = emptyList()) = RestrictionSetupState(
+        apps = apps,
+        savedRules = ruleStore.loadRules(),
+        pendingRelaxations = ruleStore.loadPendingRelaxations(),
+        protectionEnabled = ruleStore.isProtectionEnabled(),
+    )
 }
