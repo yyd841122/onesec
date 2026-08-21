@@ -49,3 +49,8 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
 
+// Instrumentation cleans up its temporary app installation. Reinstall the debug APK afterward so
+// a connected-device test run never removes the build that is waiting for manual acceptance.
+tasks.matching { it.name == "connectedDebugAndroidTest" }.configureEach {
+    finalizedBy("installDebug")
+}
