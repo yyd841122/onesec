@@ -40,7 +40,7 @@ fun OneSecApp(state: OneSecLaunchState = initialLaunchState()) {
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = state.status,
+                    text = state.configurationStatus,
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 Text(
@@ -52,4 +52,3 @@ fun OneSecApp(state: OneSecLaunchState = initialLaunchState()) {
         }
     }
 }
-
