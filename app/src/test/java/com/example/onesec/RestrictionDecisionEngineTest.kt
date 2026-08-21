@@ -114,3 +114,21 @@ class SoftRestrictionDecisionEngineTest {
             ),
         )
 }
+
+class EmergencyOverrideRestrictionDecisionTest {
+    @Test
+    fun `hard restriction allows only a currently active emergency window`() {
+        val now = Instant.parse("2026-08-21T04:00:00Z")
+        val app = InstalledApp("com.example.video", "短视频")
+        val rule = RestrictedAppRule(app.packageName, app.displayName, RestrictionLevel.HARD, DailyAllowance.ofMinutes(30))
+        fun decide(endsAt: Instant?) = DefaultRestrictionDecisionEngine.decide(
+            RestrictionDecisionRequest(
+                now, ZoneId.of("Asia/Shanghai"), app, 30, rule, true,
+                emergencyOverrideEndsAt = endsAt,
+            ),
+        )
+
+        assertEquals(ProtectionDecision.Allow, decide(now.plusSeconds(1)))
+        assertEquals(RestrictionLevel.HARD, (decide(now) as ProtectionDecision.Intervene).level)
+    }
+}

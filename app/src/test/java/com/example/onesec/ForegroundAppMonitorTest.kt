@@ -154,7 +154,7 @@ private class MutableAccessWindowStore(var endsAt: Instant?) : AccessWindowStore
     override fun save(packageName: String, endsAt: Instant) { this.endsAt = endsAt }
 }
 
-private class RecordingExpiryScheduler : AccessWindowExpiryScheduler {
+private class RecordingExpiryScheduler : TemporaryUseExpiryScheduler {
     private lateinit var callback: () -> Unit
     var cancelledPackageName: String? = null
     override fun schedule(packageName: String, endsAt: Instant, onExpired: () -> Unit) {

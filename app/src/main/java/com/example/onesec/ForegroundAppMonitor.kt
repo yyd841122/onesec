@@ -44,7 +44,7 @@ fun interface InterventionPresenter {
     fun present(intervention: ProtectionDecision.Intervene)
 }
 
-interface AccessWindowExpiryScheduler {
+interface TemporaryUseExpiryScheduler {
     fun schedule(packageName: String, endsAt: Instant, onExpired: () -> Unit)
 
     fun cancel(packageName: String)
@@ -65,7 +65,8 @@ class ForegroundAppMonitor(
     private val presenter: InterventionPresenter,
     private val clock: Clock,
     private val accessWindows: AccessWindowStore? = null,
-    private val expiryScheduler: AccessWindowExpiryScheduler? = null,
+    private val expiryScheduler: TemporaryUseExpiryScheduler? = null,
+    private val emergencyOverrides: EmergencyOverrideManager? = null,
 ) {
     private var scheduledPackageName: String? = null
 
@@ -90,6 +91,7 @@ class ForegroundAppMonitor(
             reportedUsedMinutes
         }
         val accessWindowEndsAt = accessWindows?.endsAt(packageName)
+        val emergencyOverrideEndsAt = emergencyOverrides?.activeWindowEndsAt(packageName, now)
         val decision = decisionEngine.decide(
             RestrictionDecisionRequest(
                 now = now,
@@ -99,6 +101,7 @@ class ForegroundAppMonitor(
                 rule = rule,
                 protectionAvailable = protectionAvailable,
                 accessWindowEndsAt = accessWindowEndsAt,
+                emergencyOverrideEndsAt = emergencyOverrideEndsAt,
             ),
         )
         if (decision is ProtectionDecision.Intervene) {
@@ -106,12 +109,12 @@ class ForegroundAppMonitor(
             presenter.present(decision)
         } else if (
             decision == ProtectionDecision.Allow &&
-            rule.level == RestrictionLevel.SOFT &&
             usedMinutes >= rule.dailyAllowance.minutes &&
-            accessWindowEndsAt?.isAfter(now) == true
+            (accessWindowEndsAt?.isAfter(now) == true || emergencyOverrideEndsAt?.isAfter(now) == true)
         ) {
+            val endsAt = if (rule.level == RestrictionLevel.SOFT) accessWindowEndsAt else emergencyOverrideEndsAt
             scheduledPackageName = packageName
-            expiryScheduler?.schedule(packageName, accessWindowEndsAt) {
+            expiryScheduler?.schedule(packageName, checkNotNull(endsAt)) {
                 scheduledPackageName = null
                 onAppEnteredForeground(packageName)
             }

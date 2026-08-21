@@ -9,10 +9,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,6 +33,10 @@ fun InterventionScreen(
     zoneId: ZoneId,
     onReturnHome: () -> Unit,
     onWaitCompleted: () -> Unit = {},
+    emergencyOverrideAvailable: Boolean = false,
+    onEmergencyWaitStarted: () -> Unit = {},
+    onEmergencyOverrideConfirmed: (String) -> Unit = {},
+    clock: Clock = Clock.systemUTC(),
 ) {
     BackHandler(onBack = onReturnHome)
     MaterialTheme {
@@ -40,7 +47,7 @@ fun InterventionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (intervention.level == RestrictionLevel.SOFT) {
-                    SoftRestrictionWait(onWaitCompleted)
+                    SoftRestrictionWait(clock, onWaitCompleted)
                 } else {
                     Text("强限制已生效", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 }
@@ -49,6 +56,12 @@ fun InterventionScreen(
                 Text("每日额度已耗尽")
                 if (intervention.level == RestrictionLevel.HARD) {
                     Text("下次重置：${formatResetTime(intervention, zoneId)}")
+                    EmergencyOverridePanel(
+                        available = emergencyOverrideAvailable,
+                        onWaitStarted = onEmergencyWaitStarted,
+                        onConfirmed = onEmergencyOverrideConfirmed,
+                        clock = clock,
+                    )
                 }
                 Button(onClick = onReturnHome) {
                     Text("返回桌面")
@@ -59,8 +72,39 @@ fun InterventionScreen(
 }
 
 @Composable
-private fun SoftRestrictionWait(onWaitCompleted: () -> Unit) {
-    val clock = remember { Clock.systemUTC() }
+private fun EmergencyOverridePanel(
+    available: Boolean,
+    onWaitStarted: () -> Unit,
+    onConfirmed: (String) -> Unit,
+    clock: Clock,
+) {
+    var opened by remember { mutableStateOf(false) }
+    if (!opened) {
+        if (available) TextButton(onClick = { opened = true; onWaitStarted() }) { Text("需要紧急使用？") }
+        return
+    }
+    val session = remember { EmergencyOverrideSession(clock.instant()) }
+    var remaining by remember { mutableIntStateOf(60) }
+    var waitComplete by remember { mutableStateOf(false) }
+    var reason by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        while (!waitComplete) {
+            when (val decision = session.waitDecision(clock.instant())) {
+                WaitDecision.Complete -> waitComplete = true
+                is WaitDecision.Waiting -> remaining = decision.remainingSeconds
+            }
+            delay(100)
+        }
+    }
+    Text(if (waitComplete) "请填写紧急使用原因" else "紧急解锁需等待 $remaining 秒")
+    if (waitComplete) {
+        OutlinedTextField(value = reason, onValueChange = { reason = it }, label = { Text("原因") })
+        Button(enabled = reason.isNotBlank(), onClick = { onConfirmed(reason.trim()) }) { Text("确认紧急解锁") }
+    }
+}
+
+@Composable
+private fun SoftRestrictionWait(clock: Clock, onWaitCompleted: () -> Unit) {
     val session = remember { SoftRestrictionWaitSession(clock.instant()) }
     var remainingSeconds by remember { mutableIntStateOf(AccessWindowManager.WAIT_DURATION.seconds.toInt()) }
     LaunchedEffect(Unit) {

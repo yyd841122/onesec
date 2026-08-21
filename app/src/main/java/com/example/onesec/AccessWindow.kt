@@ -30,15 +30,18 @@ sealed interface WaitDecision {
     data object Complete : WaitDecision
 }
 
-class SoftRestrictionWaitSession(
-    private val startedAt: Instant,
-) {
+class TimedWaitSession(private val startedAt: Instant, private val duration: Duration) {
     fun decide(now: Instant): WaitDecision {
         val elapsed = Duration.between(startedAt, now).coerceAtLeast(Duration.ZERO)
-        if (elapsed >= AccessWindowManager.WAIT_DURATION) return WaitDecision.Complete
-        val remaining = AccessWindowManager.WAIT_DURATION.minus(elapsed)
+        if (elapsed >= duration) return WaitDecision.Complete
+        val remaining = duration.minus(elapsed)
         return WaitDecision.Waiting((remaining.toMillis() + 999).div(1_000).toInt())
     }
+}
+
+class SoftRestrictionWaitSession(startedAt: Instant) {
+    private val wait = TimedWaitSession(startedAt, AccessWindowManager.WAIT_DURATION)
+    fun decide(now: Instant) = wait.decide(now)
 }
 
 class SharedPreferencesAccessWindowStore(

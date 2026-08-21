@@ -23,7 +23,11 @@ class OneSecAccessibilityService : AccessibilityService() {
             presenter = AndroidInterventionPresenter(this),
             clock = clock,
             accessWindows = SharedPreferencesAccessWindowStore(this),
-            expiryScheduler = AndroidAccessWindowExpiryScheduler(),
+            expiryScheduler = AndroidTemporaryUseExpiryScheduler(),
+            emergencyOverrides = EmergencyOverrideManager(
+                SharedPreferencesEmergencyOverrideStore(this),
+                clock.zone,
+            ),
         )
     }
     private val eventHandler by lazy { AndroidForegroundEventHandler(monitor) }
@@ -42,9 +46,9 @@ class OneSecAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 }
 
-class AndroidAccessWindowExpiryScheduler(
+class AndroidTemporaryUseExpiryScheduler(
     private val handler: Handler = Handler(Looper.getMainLooper()),
-) : AccessWindowExpiryScheduler {
+) : TemporaryUseExpiryScheduler {
     private val callbacks = mutableMapOf<String, Runnable>()
 
     override fun schedule(packageName: String, endsAt: java.time.Instant, onExpired: () -> Unit) {

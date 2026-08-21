@@ -12,6 +12,8 @@ import java.time.Clock
 class InterventionActivity : ComponentActivity() {
     private var intervention by mutableStateOf<ProtectionDecision.Intervene?>(null)
     private var waitCompleted = false
+    private var emergencyWaitInProgress = false
+    private var emergencyOverrideCompleted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,6 +25,9 @@ class InterventionActivity : ComponentActivity() {
                     zoneId = java.time.ZoneId.systemDefault(),
                     onReturnHome = ::returnHome,
                     onWaitCompleted = { openAccessWindow(currentIntervention) },
+                    emergencyOverrideAvailable = emergencyOverrideAvailable(currentIntervention),
+                    onEmergencyWaitStarted = { emergencyWaitInProgress = true },
+                    onEmergencyOverrideConfirmed = { reason -> grantEmergencyOverride(currentIntervention, reason) },
                 )
             }
         }
@@ -38,7 +43,9 @@ class InterventionActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (intervention?.level == RestrictionLevel.SOFT && !waitCompleted) finish()
+        if ((intervention?.level == RestrictionLevel.SOFT && !waitCompleted) ||
+            (emergencyWaitInProgress && !emergencyOverrideCompleted)
+        ) finish()
     }
 
     private fun returnHome() {
@@ -55,6 +62,22 @@ class InterventionActivity : ComponentActivity() {
         waitCompleted = true
         AccessWindowManager(SharedPreferencesAccessWindowStore(this))
             .grant(intervention.app.packageName, Clock.systemUTC().instant())
+        packageManager.getLaunchIntentForPackage(intervention.app.packageName)?.let(::startActivity)
+        finish()
+    }
+
+    private fun emergencyManager() = EmergencyOverrideManager(
+        SharedPreferencesEmergencyOverrideStore(this),
+        Clock.systemDefaultZone().zone,
+    )
+
+    private fun emergencyOverrideAvailable(intervention: ProtectionDecision.Intervene): Boolean =
+        intervention.level == RestrictionLevel.HARD && emergencyManager().isAvailable(Clock.systemUTC().instant())
+
+    private fun grantEmergencyOverride(intervention: ProtectionDecision.Intervene, reason: String) {
+        if (reason.isBlank() || intervention.level != RestrictionLevel.HARD) return
+        emergencyManager().grant(intervention.app.packageName, reason, Clock.systemUTC().instant())
+        emergencyOverrideCompleted = true
         packageManager.getLaunchIntentForPackage(intervention.app.packageName)?.let(::startActivity)
         finish()
     }

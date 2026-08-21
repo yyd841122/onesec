@@ -11,6 +11,7 @@ data class RestrictionDecisionRequest(
     val rule: RestrictedAppRule,
     val protectionAvailable: Boolean,
     val accessWindowEndsAt: Instant? = null,
+    val emergencyOverrideEndsAt: Instant? = null,
 )
 
 sealed interface ProtectionDecision {
@@ -34,7 +35,11 @@ object DefaultRestrictionDecisionEngine : RestrictionDecisionEngine {
     override fun decide(request: RestrictionDecisionRequest): ProtectionDecision {
         if (!request.protectionAvailable) return ProtectionDecision.ProtectionUnavailable
         if (request.usedMinutes < request.rule.dailyAllowance.minutes) return ProtectionDecision.Allow
-        if (request.rule.level == RestrictionLevel.SOFT && request.accessWindowEndsAt?.isAfter(request.now) == true) {
+        val temporaryUseActive = when (request.rule.level) {
+            RestrictionLevel.SOFT -> request.accessWindowEndsAt?.isAfter(request.now) == true
+            RestrictionLevel.HARD -> request.emergencyOverrideEndsAt?.isAfter(request.now) == true
+        }
+        if (temporaryUseActive) {
             return ProtectionDecision.Allow
         }
 
