@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">识别当前应用，以便 OneSec 在额度耗尽时触发拦截。</string>
+</resources>

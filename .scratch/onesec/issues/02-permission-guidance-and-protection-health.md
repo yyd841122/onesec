@@ -4,15 +4,16 @@
 
 **Blocked by:** 01: 创建可运行的 OneSec Android 外壳
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] 权限引导分别解释使用情况访问权限和无障碍权限的用途。
-- [ ] 使用者可以从引导页进入对应的 Android 系统设置页面。
-- [ ] 从系统设置返回 OneSec 后，页面自动反映最新权限状态。
-- [ ] 两项核心权限均有效时显示保护可用。
-- [ ] 任一核心权限无效时醒目显示保护失效，并且不把使用数据标记为可靠。
-- [ ] 权限状态通过可替换的 Android adapter 提供，界面测试无需真实修改系统权限。
-- [ ] 自动化测试覆盖两项权限的所有有效与失效组合，以及从系统设置返回后的状态刷新。
+- [x] 权限引导分别解释使用情况访问权限和无障碍权限的用途。
+- [x] 使用者可以从引导页进入对应的 Android 系统设置页面。
+- [x] 从系统设置返回 OneSec 后，页面自动反映最新权限状态。
+- [x] 两项核心权限均有效时显示保护可用。
+- [x] 任一核心权限无效时醒目显示保护失效，并且不把使用数据标记为可靠。
+- [x] 权限状态通过可替换的 Android adapter 提供，界面测试无需真实修改系统权限。
+- [x] 自动化测试覆盖两项权限的所有有效与失效组合，以及从系统设置返回后的状态刷新。
 
 ## Comments
 
+- 2026-08-21: Implemented permission guidance, Android settings links, lifecycle refresh, replaceable permission gateway, protection-health states, and automated state/UI coverage.
