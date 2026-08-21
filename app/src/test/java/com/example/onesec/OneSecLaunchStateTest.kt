@@ -9,7 +9,7 @@ class OneSecLaunchStateTest {
         val state = initialLaunchState()
 
         assertEquals("OneSec", state.title)
-        assertEquals("尚未设置保护", state.configurationStatus)
+        assertEquals("尚未设置保护", state.protectionStatus)
         assertEquals("下一步：授予权限并选择受限应用", state.nextStep)
     }
 }
