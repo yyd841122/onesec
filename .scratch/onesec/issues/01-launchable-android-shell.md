@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-human
+**Status:** completed
 
 - [x] 工程使用 Kotlin、Jetpack Compose 与 Material 3，并支持 Android 10 及以上系统。
 - [x] Debug 构建可以通过命令行成功完成。
 - [x] 基础自动化测试可以通过命令行运行并成功完成。
-- [ ] 应用可通过 ADB 安装到 OPPO Reno PCAM00，并能正常启动。
+- [x] 应用可通过 ADB 安装到 OPPO Reno PCAM00，并能正常启动。
 - [x] 启动页显示 OneSec 名称和明确的初始状态，不包含未实现功能的虚假数据。
 - [x] 应用清单不申请联网权限。
 - [x] 工程结构为后续限制决策模块和 Android adapters 留出清晰位置，但不提前创建没有第二个实现的假设 seam。
@@ -18,3 +18,4 @@
 
 - 2026-08-21: `./gradlew test assembleDebug lintDebug` 通过，Debug APK 已生成。APK 的最低 SDK 为29，且没有 INTERNET 权限。
 - 2026-08-21: `adb devices -l` 未发现已连接设备，因此真机安装与启动仍需使用者连接并授权 OPPO Reno PCAM00 后验证。
+- 2026-08-21: 通过无线 ADB 连接 PCAM00，APK 安装成功；`MainActivity` 冷启动返回 `Status: ok`，使用者确认初始页面显示正常。
