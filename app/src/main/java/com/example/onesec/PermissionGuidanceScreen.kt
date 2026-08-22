@@ -114,21 +114,21 @@ fun OneSecApp(
                     title = "使用情况访问权限",
                     explanation = "统计受限应用在前台的实际使用时间。",
                     granted = state.usageAccessGranted,
-                    buttonLabel = "去设置",
+                    buttonLabel = "使用设置",
                     onOpenSettings = onOpenUsageAccessSettings,
                 )
                 PermissionCard(
                     title = "无障碍权限",
                     explanation = "识别当前应用并在额度耗尽后触发限制。",
                     granted = state.accessibilityGranted,
-                    buttonLabel = "去设置",
+                    buttonLabel = "无障碍设置",
                     onOpenSettings = onOpenAccessibilitySettings,
                 )
                 PermissionCard(
                     title = "精确到期提醒",
                     explanation = "在额度、窗口或紧急解锁到期时准时恢复限制。",
                     granted = state.exactAlarmsGranted,
-                    buttonLabel = "去设置",
+                    buttonLabel = "提醒设置",
                     onOpenSettings = onOpenExactAlarmSettings,
                 )
                 SectionTitle("设备保障", "ColorOS")

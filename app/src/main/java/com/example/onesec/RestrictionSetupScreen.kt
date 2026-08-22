@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +34,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun RestrictionSetupRoute(
@@ -40,14 +45,30 @@ fun RestrictionSetupRoute(
 ) {
     var state by remember(controller) { mutableStateOf(controller.state) }
     var showingCatalog by remember { mutableStateOf(false) }
+    var loadingCatalog by remember { mutableStateOf(false) }
+    var catalogLoadFailed by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     RestrictionSetupScreen(
         state = state,
         showingCatalog = showingCatalog,
+        loadingCatalog = loadingCatalog,
+        catalogLoadFailed = catalogLoadFailed,
         onOpenCatalog = {
-            controller.openAppCatalog()
-            state = controller.state
             showingCatalog = true
+            loadingCatalog = true
+            catalogLoadFailed = false
+            coroutineScope.launch {
+                try {
+                    val apps = withContext(Dispatchers.IO) { controller.loadAppCatalog() }
+                    controller.showAppCatalog(apps)
+                    state = controller.state
+                } catch (_: RuntimeException) {
+                    catalogLoadFailed = true
+                } finally {
+                    loadingCatalog = false
+                }
+            }
         },
         onSelectApp = { packageName ->
             controller.selectApp(packageName)
@@ -94,6 +115,8 @@ fun RestrictionSetupRoute(
 private fun RestrictionSetupScreen(
     state: RestrictionSetupState,
     showingCatalog: Boolean,
+    loadingCatalog: Boolean,
+    catalogLoadFailed: Boolean,
     onOpenCatalog: () -> Unit,
     onSelectApp: (String) -> Unit,
     onEditRule: (String) -> Unit,
@@ -132,7 +155,12 @@ private fun RestrictionSetupScreen(
                         onSave = onSave,
                         onCancelSelection = onCancelSelection,
                     )
-                    showingCatalog -> AppCatalogList(state.apps, onSelectApp)
+                    showingCatalog -> AppCatalogList(
+                        apps = state.apps,
+                        loading = loadingCatalog,
+                        loadFailed = catalogLoadFailed,
+                        onSelectApp = onSelectApp,
+                    )
                     else -> RestrictionSummary(
                         savedRules = state.savedRules,
                         pendingRelaxations = state.pendingRelaxations,
@@ -172,6 +200,9 @@ private fun RestrictionSummary(
         Text("尚未选择受限应用", style = MaterialTheme.typography.bodyLarge)
     } else {
         savedRules.forEach { savedRule ->
+            val scheduledRemoval = pendingRelaxations
+                .filterIsInstance<PendingRelaxation.RemoveRule>()
+                .firstOrNull { it.app.packageName == savedRule.packageName }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -187,16 +218,30 @@ private fun RestrictionSummary(
                         savedRule.level == RestrictionLevel.SOFT,
                     )
                     Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = { onEditRule(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("编辑规则")
+                    Button(
+                        onClick = { onEditRule(savedRule.packageName) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = scheduledRemoval == null,
+                    ) {
+                        Text(if (scheduledRemoval == null) "编辑规则" else "规则已安排删除")
                     }
-                    if (savedRule.level == RestrictionLevel.SOFT) {
+                    if (savedRule.level == RestrictionLevel.SOFT && scheduledRemoval == null) {
                         OutlinedButton(onClick = { onTightenToHard(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
                             Text("立即改为强限制")
                         }
                     }
-                    OutlinedButton(onClick = { onRemoveRule(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("次日删除强限制")
+                    OutlinedButton(
+                        onClick = { onRemoveRule(savedRule.packageName) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = scheduledRemoval == null,
+                    ) {
+                        Text(
+                            if (scheduledRemoval == null) {
+                                "次日移除限制"
+                            } else {
+                                "已安排 ${scheduledRemoval.effectiveDate} 移除"
+                            },
+                        )
                     }
                 }
             }
@@ -206,8 +251,19 @@ private fun RestrictionSummary(
         Text("选择受限应用")
     }
     if (protectionEnabled) {
-        OutlinedButton(onClick = onDisableProtection, modifier = Modifier.fillMaxWidth()) {
-            Text("次日关闭保护")
+        val scheduledDisable = pendingRelaxations.filterIsInstance<PendingRelaxation.DisableProtection>().firstOrNull()
+        OutlinedButton(
+            onClick = onDisableProtection,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = scheduledDisable == null,
+        ) {
+            Text(
+                if (scheduledDisable == null) {
+                    "次日关闭保护"
+                } else {
+                    "已安排 ${scheduledDisable.effectiveDate} 关闭保护"
+                },
+            )
         }
     }
     if (pendingRelaxations.isNotEmpty()) {
@@ -244,9 +300,38 @@ private fun PendingRelaxation.displayText(): String = when (this) {
 @Composable
 private fun AppCatalogList(
     apps: List<InstalledApp>,
+    loading: Boolean,
+    loadFailed: Boolean,
     onSelectApp: (String) -> Unit,
 ) {
-    SectionTitle("设备上的应用", "${apps.size} 个")
+    SectionTitle("设备上的应用", if (loading) null else "${apps.size} 个")
+    if (loading) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("正在加载应用…", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "首次加载需要读取应用图标，请稍候。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        return
+    }
+    if (loadFailed) {
+        Text("应用列表加载失败，请返回后重试。", color = MaterialTheme.colorScheme.error)
+        return
+    }
     if (apps.isEmpty()) {
         Text("没有找到可管理的应用")
     }

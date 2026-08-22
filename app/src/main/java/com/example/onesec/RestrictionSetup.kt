@@ -104,11 +104,21 @@ class RestrictionSetupController(
     private val clock: Clock = Clock.systemDefaultZone(),
     private val onRuleSaved: () -> Unit = {},
 ) {
+    private var cachedApps: List<InstalledApp>? = null
+
     var state = readState()
         private set
 
     fun openAppCatalog() {
-        state = state.copy(apps = appCatalog.manageableApps(), editor = null)
+        showAppCatalog(loadAppCatalog())
+    }
+
+    fun loadAppCatalog(): List<InstalledApp> = cachedApps ?: appCatalog.manageableApps().also {
+        cachedApps = it
+    }
+
+    fun showAppCatalog(apps: List<InstalledApp>) {
+        state = state.copy(apps = apps, editor = null)
     }
 
     fun selectApp(packageName: String) {

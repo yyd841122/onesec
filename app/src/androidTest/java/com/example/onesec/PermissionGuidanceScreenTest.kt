@@ -37,15 +37,15 @@ class PermissionGuidanceScreenTest {
         composeRule.onNodeWithText("保护失效").assertIsDisplayed()
         composeRule.onNodeWithText("使用数据不可靠：请修复下方缺失的核心权限。")
             .assertIsDisplayed()
-        composeRule.onNodeWithText("使用情况访问权限用于统计应用前台用时。")
+        composeRule.onNodeWithText("统计受限应用在前台的实际使用时间。")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithText("无障碍权限用于识别当前应用并触发拦截。")
+        composeRule.onNodeWithText("识别当前应用并在额度耗尽后触发限制。")
             .performScrollTo()
             .assertIsDisplayed()
 
-        composeRule.onNodeWithText("打开使用情况访问设置").performScrollTo().performClick()
-        composeRule.onNodeWithText("打开无障碍设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("使用设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("无障碍设置").performScrollTo().performClick()
 
         assertEquals(1, usageSettingsOpenCount)
         assertEquals(1, accessibilitySettingsOpenCount)
@@ -92,12 +92,12 @@ class PermissionGuidanceScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("OPPO / ColorOS 后台保护").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("允许 OneSec 后台运行和自启动，并关闭电池优化。")
+        composeRule.onNodeWithText("允许后台持续保护").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("建议关闭电池优化，并允许自启动、关联启动和后台活动。")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithText("打开电池优化设置").performScrollTo().performClick()
-        composeRule.onNodeWithText("打开 OneSec 应用设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("电池优化").performScrollTo().performClick()
+        composeRule.onNodeWithText("应用设置").performScrollTo().performClick()
 
         assertEquals(1, batterySettingsOpenCount)
         assertEquals(1, appSettingsOpenCount)
@@ -124,7 +124,7 @@ class PermissionGuidanceScreenTest {
         }
 
         composeRule.onNodeWithText("精确到期提醒").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("打开闹钟和提醒设置").performScrollTo().performClick()
+        composeRule.onNodeWithText("提醒设置").performScrollTo().performClick()
         assertEquals(1, opens)
 
         val intent = exactAlarmPermissionIntent("com.example.onesec")

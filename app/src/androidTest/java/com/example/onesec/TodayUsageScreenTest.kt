@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -26,9 +27,9 @@ class TodayUsageScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("今日已用 12 分钟").assertIsDisplayed()
-        composeRule.onNodeWithText("剩余每日额度 18 分钟").assertIsDisplayed()
-        composeRule.onNodeWithText("不足一分钟的用时按一分钟计入。").assertIsDisplayed()
+        composeRule.onNodeWithText("今日已用 12 分钟").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("剩余 18 分钟").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("不足一分钟的用时按一分钟计入。").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -77,12 +78,11 @@ class TodayUsageScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("全部受限应用今日总用时 12 分钟").assertIsDisplayed()
-        composeRule.onNodeWithText("强限制").assertIsDisplayed()
-        composeRule.onNodeWithText("今日拦截 3 次").assertIsDisplayed()
-        composeRule.onNodeWithText("今日紧急解锁：已使用").assertIsDisplayed()
-        composeRule.onNodeWithText("待生效：移除限制（2026-08-22 生效）").assertIsDisplayed()
-        composeRule.onNodeWithText("待生效：关闭保护（2026-08-22 生效）").assertIsDisplayed()
+        composeRule.onNodeWithText("全部受限应用今日总用时").assertIsDisplayed()
+        composeRule.onNodeWithText("拦截 3 次 · 紧急解锁已使用").assertIsDisplayed()
+        composeRule.onNodeWithText("强限制").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("待生效：移除限制（2026-08-22 生效）").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("待生效：关闭保护（2026-08-22 生效）").performScrollTo().assertIsDisplayed()
     }
 
     @Test
