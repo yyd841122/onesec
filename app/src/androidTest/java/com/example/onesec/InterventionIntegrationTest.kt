@@ -35,7 +35,7 @@ class InterventionIntegrationTest {
         val presenter = CountingInterventionPresenter(AndroidInterventionPresenter(context))
         val monitor = ForegroundAppMonitor(
             ruleStore = IntegrationRuleStore(rule),
-            usageLookup = TodayUsageLookup { _, _ -> 30 },
+            usageLookup = TodayUsageLookup { _, _ -> java.time.Duration.ofMinutes(30) },
             protectionStatus = { true },
             exhaustedAllowances = IntegrationExhaustedAllowanceStore(),
             decisionEngine = DefaultRestrictionDecisionEngine,

@@ -77,9 +77,18 @@ fun usedTodayMinutes(
     now: Instant,
     zoneId: ZoneId,
 ): Int {
-    val todayStart = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
-    val usedMillis = foregroundMillis(packageName, events, todayStart, now)
+    val usedMillis = usedTodayDuration(packageName, events, now, zoneId).toMillis()
     return if (usedMillis == 0L) 0 else ((usedMillis + 59_999L) / 60_000L).toInt()
+}
+
+fun usedTodayDuration(
+    packageName: String,
+    events: List<UsageEvent>,
+    now: Instant,
+    zoneId: ZoneId,
+): Duration {
+    val todayStart = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
+    return Duration.ofMillis(foregroundMillis(packageName, events, todayStart, now))
 }
 
 private fun foregroundMillis(

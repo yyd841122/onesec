@@ -6,14 +6,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 fun interface TodayUsageLookup {
-    fun usedMinutes(packageName: String, now: Instant): Int
+    fun usedDuration(packageName: String, now: Instant): java.time.Duration
 }
 
 class UsageEventsTodayUsageLookup(
     private val usageEvents: UsageEventSource,
     private val zoneId: ZoneId,
 ) : TodayUsageLookup {
-    override fun usedMinutes(packageName: String, now: Instant): Int = usedTodayMinutes(
+    override fun usedDuration(packageName: String, now: Instant): java.time.Duration = usedTodayDuration(
         packageName = packageName,
         events = usageEvents.eventsBetween(Instant.EPOCH, now),
         now = now,
@@ -80,16 +80,18 @@ class ForegroundAppMonitor(
         val now = clock.instant()
         val localDate = now.atZone(clock.zone).toLocalDate()
         val protectionAvailable = protectionStatus.protectionAvailable()
-        val reportedUsedMinutes = if (protectionAvailable) {
-            usageLookup.usedMinutes(packageName, now)
+        val reportedUsedDuration = if (protectionAvailable) {
+            usageLookup.usedDuration(packageName, now)
         } else {
-            0
+            java.time.Duration.ZERO
         }
-        val usedMinutes = if (exhaustedAllowances.isExhausted(packageName, localDate)) {
-            maxOf(reportedUsedMinutes, rule.dailyAllowance.minutes)
+        val allowanceDuration = java.time.Duration.ofMinutes(rule.dailyAllowance.minutes.toLong())
+        val usedDuration = if (exhaustedAllowances.isExhausted(packageName, localDate)) {
+            maxOf(reportedUsedDuration, allowanceDuration)
         } else {
-            reportedUsedMinutes
+            reportedUsedDuration
         }
+        val usedMinutes = if (usedDuration.isZero) 0 else ((usedDuration.toMillis() + 59_999L) / 60_000L).toInt()
         val accessWindowEndsAt = accessWindows?.endsAt(packageName)
         val emergencyOverrideEndsAt = emergencyOverrides?.activeWindowEndsAt(packageName, now)
         val decision = decisionEngine.decide(
@@ -102,6 +104,7 @@ class ForegroundAppMonitor(
                 protectionAvailable = protectionAvailable,
                 accessWindowEndsAt = accessWindowEndsAt,
                 emergencyOverrideEndsAt = emergencyOverrideEndsAt,
+                allowanceExhausted = usedDuration >= allowanceDuration,
             ),
         )
         if (decision is ProtectionDecision.Intervene) {
@@ -109,12 +112,18 @@ class ForegroundAppMonitor(
             presenter.present(decision)
         } else if (
             decision == ProtectionDecision.Allow &&
-            usedMinutes >= rule.dailyAllowance.minutes &&
+            usedDuration >= allowanceDuration &&
             (accessWindowEndsAt?.isAfter(now) == true || emergencyOverrideEndsAt?.isAfter(now) == true)
         ) {
             val endsAt = if (rule.level == RestrictionLevel.SOFT) accessWindowEndsAt else emergencyOverrideEndsAt
             scheduledPackageName = packageName
             expiryScheduler?.schedule(packageName, checkNotNull(endsAt)) {
+                scheduledPackageName = null
+                onAppEnteredForeground(packageName)
+            }
+        } else if (decision == ProtectionDecision.Allow && usedDuration < allowanceDuration) {
+            scheduledPackageName = packageName
+            expiryScheduler?.schedule(packageName, now.plus(allowanceDuration.minus(usedDuration))) {
                 scheduledPackageName = null
                 onAppEnteredForeground(packageName)
             }

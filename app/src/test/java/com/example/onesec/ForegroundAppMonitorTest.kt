@@ -76,6 +76,31 @@ class ForegroundAppMonitorTest {
     }
 
     @Test
+    fun `continued use is reevaluated exactly when the daily allowance is exhausted`() {
+        val presenter = RecordingInterventionPresenter()
+        val scheduler = RecordingExpiryScheduler()
+        val monitor = ForegroundAppMonitor(
+            ruleStore = MonitorRuleStore(rule.copy(dailyAllowance = DailyAllowance.ofMinutes(5))),
+            usageLookup = SequenceTodayUsageLookup(
+                java.time.Duration.ofMinutes(4).plusSeconds(1),
+                java.time.Duration.ofMinutes(5),
+            ),
+            protectionStatus = { true },
+            exhaustedAllowances = MemoryExhaustedAllowanceStore(),
+            decisionEngine = DefaultRestrictionDecisionEngine,
+            presenter = presenter,
+            clock = Clock.fixed(now, ZoneId.of("Asia/Shanghai")),
+            expiryScheduler = scheduler,
+        )
+
+        assertEquals(ProtectionDecision.Allow, monitor.onAppEnteredForeground(rule.packageName))
+        assertEquals(now.plusSeconds(59), scheduler.endsAt)
+        scheduler.expire()
+
+        assertEquals(RestrictionLevel.HARD, presenter.presented.single().level)
+    }
+
+    @Test
     fun `continued soft restriction use is reevaluated when its access window expires`() {
         val softRule = rule.copy(level = RestrictionLevel.SOFT, dailyAllowance = DailyAllowance.ofMinutes(60))
         val presenter = RecordingInterventionPresenter()
@@ -157,7 +182,9 @@ private class MutableAccessWindowStore(var endsAt: Instant?) : AccessWindowStore
 private class RecordingExpiryScheduler : TemporaryUseExpiryScheduler {
     private lateinit var callback: () -> Unit
     var cancelledPackageName: String? = null
+    var endsAt: Instant? = null
     override fun schedule(packageName: String, endsAt: Instant, onExpired: () -> Unit) {
+        this.endsAt = endsAt
         callback = onExpired
     }
     override fun cancel(packageName: String) { cancelledPackageName = packageName }
@@ -174,15 +201,17 @@ private class MonitorRuleStore(
 private class FixedTodayUsageLookup(
     private val usedMinutes: Int,
 ) : TodayUsageLookup {
-    override fun usedMinutes(packageName: String, now: Instant) = usedMinutes
+    override fun usedDuration(packageName: String, now: Instant) = java.time.Duration.ofMinutes(usedMinutes.toLong())
 }
 
 private class SequenceTodayUsageLookup(
-    vararg values: Int,
+    vararg values: java.time.Duration,
 ) : TodayUsageLookup {
     private val values = ArrayDeque(values.toList())
 
-    override fun usedMinutes(packageName: String, now: Instant): Int = values.removeFirst()
+    constructor(vararg values: Int) : this(*values.map { java.time.Duration.ofMinutes(it.toLong()) }.toTypedArray())
+
+    override fun usedDuration(packageName: String, now: Instant): java.time.Duration = values.removeFirst()
 }
 
 private class MemoryExhaustedAllowanceStore : ExhaustedAllowanceStore {

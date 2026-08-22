@@ -1,6 +1,7 @@
 package com.example.onesec
 
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -17,6 +18,17 @@ class TodayUsageControllerTest {
         level = RestrictionLevel.HARD,
         dailyAllowance = DailyAllowance.ofMinutes(30),
     )
+
+    @Test
+    fun `precise duration remains available independently of rounded display minutes`() {
+        val events = listOf(
+            event("2026-08-21T01:00:00Z", UsageEventType.FOREGROUND),
+            event("2026-08-21T01:04:01Z", UsageEventType.BACKGROUND),
+        )
+
+        assertEquals(Duration.ofMinutes(4).plusSeconds(1), usedTodayDuration(rule.packageName, events, now, zone))
+        assertEquals(5, usedTodayMinutes(rule.packageName, events, now, zone))
+    }
 
     @Test
     fun `only completed foreground intervals count toward today's usage`() {
