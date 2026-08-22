@@ -69,6 +69,7 @@ class InterventionActivity : ComponentActivity() {
     private fun emergencyManager() = EmergencyOverrideManager(
         SharedPreferencesEmergencyOverrideStore(this),
         Clock.systemDefaultZone().zone,
+        SharedPreferencesLocalHistoryStore(this, Clock.systemDefaultZone().zone),
     )
 
     private fun emergencyOverrideAvailable(intervention: ProtectionDecision.Intervene): Boolean =

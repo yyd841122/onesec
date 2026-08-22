@@ -44,6 +44,7 @@ class EmergencyOverrideSession(private val startedAt: Instant) {
 class EmergencyOverrideManager(
     private val store: EmergencyOverrideStore,
     private val zoneId: ZoneId,
+    private val historyStore: LocalHistoryStore? = null,
 ) {
     fun isAvailable(now: Instant): Boolean = store.load()?.localDate != now.atZone(zoneId).toLocalDate()
 
@@ -62,6 +63,7 @@ class EmergencyOverrideManager(
             localDate = now.atZone(zoneId).toLocalDate(),
         )
         store.save(record)
+        historyStore?.recordEmergencyOverride(record)
         return record
     }
 }

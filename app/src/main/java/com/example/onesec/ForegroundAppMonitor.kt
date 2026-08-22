@@ -68,6 +68,7 @@ class ForegroundAppMonitor(
     private val expiryScheduler: TemporaryUseExpiryScheduler? = null,
     private val emergencyOverrides: EmergencyOverrideManager? = null,
     private val foregroundPackageLookup: (() -> String?)? = null,
+    private val historyStore: LocalHistoryStore? = null,
 ) {
     private var scheduledPackageName: String? = null
 
@@ -106,6 +107,7 @@ class ForegroundAppMonitor(
         )
         if (decision is ProtectionDecision.Intervene) {
             exhaustedAllowances.markExhausted(packageName, localDate)
+            historyStore?.recordIntervention(packageName, now)
             presenter.present(decision)
         } else if (
             decision == ProtectionDecision.Allow &&

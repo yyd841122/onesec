@@ -25,6 +25,8 @@ class MainActivity : ComponentActivity() {
             permissionGateway = permissionGateway,
             usageEvents = AndroidUsageEventSource(this),
             clock = Clock.systemDefaultZone(),
+            historyStore = SharedPreferencesLocalHistoryStore(this, Clock.systemDefaultZone().zone),
+            localDataClearer = AndroidLocalDataClearer(this),
         )
         setContent {
             OneSecRoot(permissionController, restrictionController, todayUsageController)

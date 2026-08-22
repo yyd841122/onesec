@@ -28,11 +28,16 @@ data class TodayAppUsage(
     val displayName: String,
     val usedMinutes: Int,
     val remainingMinutes: Int,
+    val level: RestrictionLevel = RestrictionLevel.HARD,
+    val pendingRelaxation: PendingRelaxation? = null,
 )
 
 data class TodayUsageState(
     val protectionAvailable: Boolean,
     val apps: List<TodayAppUsage>,
+    val totalUsedMinutes: Int = 0,
+    val interventionCount: Int = 0,
+    val emergencyOverrideUsed: Boolean = false,
 )
 
 class TodayUsageController(
@@ -40,6 +45,8 @@ class TodayUsageController(
     private val permissionGateway: PermissionGateway,
     private val usageEvents: UsageEventSource,
     private val clock: Clock,
+    private val historyStore: LocalHistoryStore? = null,
+    private val localDataClearer: LocalDataClearer? = null,
 ) {
     var state = TodayUsageState(protectionAvailable = false, apps = emptyList())
         private set
@@ -56,20 +63,43 @@ class TodayUsageController(
 
         val now = clock.instant()
         val events = usageEvents.eventsBetween(Instant.EPOCH, now)
+        val today = now.atZone(clock.zone).toLocalDate()
+        historyStore?.pruneBefore(today.minusDays(89))
+        val history = historyStore?.today(today) ?: TodayHistory()
+        val pending = (ruleStore as? RestrictionPolicyStore)?.loadPendingRelaxations().orEmpty()
+        val apps = rules.map { rule ->
+            val usedMinutes = usedTodayMinutes(rule.packageName, events, now, clock.zone)
+            historyStore?.recordUsage(rule.packageName, today, usedMinutes)
+            TodayAppUsage(
+                packageName = rule.packageName,
+                displayName = rule.displayName,
+                usedMinutes = usedMinutes,
+                remainingMinutes = (rule.dailyAllowance.minutes - usedMinutes).coerceAtLeast(0),
+                level = rule.level,
+                pendingRelaxation = pending.firstOrNull { it.packageNameOrNull == rule.packageName },
+            )
+        }
         state = TodayUsageState(
             protectionAvailable = true,
-            apps = rules.map { rule ->
-                val usedMinutes = usedTodayMinutes(rule.packageName, events, now, clock.zone)
-                TodayAppUsage(
-                    packageName = rule.packageName,
-                    displayName = rule.displayName,
-                    usedMinutes = usedMinutes,
-                    remainingMinutes = (rule.dailyAllowance.minutes - usedMinutes).coerceAtLeast(0),
-                )
-            },
+            apps = apps,
+            totalUsedMinutes = apps.sumOf(TodayAppUsage::usedMinutes),
+            interventionCount = history.interventionCount,
+            emergencyOverrideUsed = history.emergencyOverrideUsed,
         )
     }
+
+    fun clearAllLocalData() {
+        localDataClearer?.clearAll()
+        state = TodayUsageState(protectionAvailable = true, apps = emptyList())
+    }
 }
+
+private val PendingRelaxation.packageNameOrNull: String?
+    get() = when (this) {
+        is PendingRelaxation.ReplaceRule -> replacement.packageName
+        is PendingRelaxation.RemoveRule -> app.packageName
+        is PendingRelaxation.DisableProtection -> null
+    }
 
 fun usedTodayMinutes(
     packageName: String,

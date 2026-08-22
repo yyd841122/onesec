@@ -144,6 +144,7 @@ private fun createForegroundAppMonitor(
     expiryScheduler: TemporaryUseExpiryScheduler?,
 ): ForegroundAppMonitor {
     val permissionGateway = AndroidPermissionGateway(context)
+    val historyStore = SharedPreferencesLocalHistoryStore(context, clock.zone)
     return ForegroundAppMonitor(
         ruleStore = SharedPreferencesRestrictionRuleStore(context),
         usageLookup = UsageEventsTodayUsageLookup(usageEvents, clock.zone),
@@ -159,11 +160,13 @@ private fun createForegroundAppMonitor(
         emergencyOverrides = EmergencyOverrideManager(
             SharedPreferencesEmergencyOverrideStore(context),
             clock.zone,
+            historyStore,
         ),
         foregroundPackageLookup = {
             val now = clock.instant()
             currentForegroundPackage(usageEvents.eventsBetween(now.minus(Duration.ofDays(1)), now))
         },
+        historyStore = historyStore,
     )
 }
 

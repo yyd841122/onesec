@@ -172,6 +172,49 @@ class TodayUsageControllerTest {
         assertTrue(controller.state.apps.isEmpty())
     }
 
+    @Test
+    fun `overview aggregates total usage rules pending changes and today's activity`() {
+        val pending = PendingRelaxation.RemoveRule(
+            InstalledApp(rule.packageName, rule.displayName),
+            java.time.LocalDate.of(2026, 8, 22),
+        )
+        val controller = TodayUsageController(
+            ruleStore = TestPolicyStore(listOf(rule), listOf(pending)),
+            permissionGateway = TestPermissionGateway(true),
+            usageEvents = TestUsageEventSource(
+                listOf(event("2026-08-21T01:00:00Z", UsageEventType.FOREGROUND), event("2026-08-21T01:12:00Z", UsageEventType.BACKGROUND)),
+            ),
+            historyStore = TestHistoryStore(TodayHistory(3, emergencyOverrideUsed = true)),
+            clock = Clock.fixed(now, zone),
+        )
+
+        controller.refresh()
+
+        assertEquals(12, controller.state.totalUsedMinutes)
+        assertEquals(RestrictionLevel.HARD, controller.state.apps.single().level)
+        assertEquals(pending, controller.state.apps.single().pendingRelaxation)
+        assertEquals(3, controller.state.interventionCount)
+        assertTrue(controller.state.emergencyOverrideUsed)
+    }
+
+    @Test
+    fun `clear all local data returns the overview to its real initial state`() {
+        var cleared = false
+        val controller = TodayUsageController(
+            ruleStore = TestRuleStore(listOf(rule)),
+            permissionGateway = TestPermissionGateway(true),
+            usageEvents = TestUsageEventSource(emptyList()),
+            clock = Clock.fixed(now, zone),
+            localDataClearer = LocalDataClearer { cleared = true },
+        )
+
+        controller.clearAllLocalData()
+
+        assertTrue(cleared)
+        assertTrue(controller.state.apps.isEmpty())
+        assertEquals(0, controller.state.totalUsedMinutes)
+    }
+
     private fun controllerWith(
         events: List<UsageEvent>,
         usageAccessGranted: Boolean = true,
@@ -192,6 +235,28 @@ class TodayUsageControllerTest {
         type = type,
         activityId = activityId,
     )
+}
+
+private class TestPolicyStore(
+    private val rules: List<RestrictedAppRule>,
+    private val pending: List<PendingRelaxation>,
+) : RestrictionPolicyStore {
+    override fun loadRules() = rules
+    override fun saveRule(rule: RestrictedAppRule) = Unit
+    override fun loadPendingRelaxations() = pending
+    override fun schedulePendingRelaxation(pendingRelaxation: PendingRelaxation) = Unit
+    override fun cancelPendingRelaxation(packageName: String) = Unit
+    override fun removeRule(packageName: String) = Unit
+    override fun isProtectionEnabled() = true
+    override fun disableProtection() = Unit
+}
+
+private class TestHistoryStore(private val history: TodayHistory) : LocalHistoryStore {
+    override fun recordUsage(packageName: String, localDate: java.time.LocalDate, usedMinutes: Int) = Unit
+    override fun recordIntervention(packageName: String, at: Instant) = Unit
+    override fun recordEmergencyOverride(record: EmergencyOverrideRecord) = Unit
+    override fun today(onDate: java.time.LocalDate) = history
+    override fun pruneBefore(cutoff: java.time.LocalDate) = Unit
 }
 
 private class TestRuleStore(
