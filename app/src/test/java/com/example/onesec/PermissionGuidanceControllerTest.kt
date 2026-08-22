@@ -55,6 +55,20 @@ class PermissionGuidanceControllerTest {
         assertEquals("保护需要修复", state.protectionStatus)
         assertEquals("系统未能在重启后恢复保护，请检查后台运行设置。", state.statusExplanation)
     }
+
+    @Test
+    fun `protection is unavailable when exact deadline alarms are unavailable`() {
+        val state = permissionGuidanceState(
+            PermissionSnapshot(
+                usageAccessGranted = true,
+                accessibilityGranted = true,
+                exactAlarmsGranted = false,
+            ),
+        )
+
+        assertFalse(state.protectionAvailable)
+        assertFalse(state.exactAlarmsGranted)
+    }
 }
 
 private class FakePermissionGateway(

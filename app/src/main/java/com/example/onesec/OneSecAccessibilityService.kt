@@ -163,10 +163,6 @@ private fun createForegroundAppMonitor(
             clock.zone,
             historyStore,
         ),
-        foregroundPackageLookup = {
-            val now = clock.instant()
-            currentForegroundPackage(usageEvents.eventsBetween(now.minus(Duration.ofDays(1)), now))
-        },
         historyStore = historyStore,
         usageHistoryLookup = historyLookup::usedDurationOn,
     )

@@ -103,7 +103,6 @@ class ForegroundAppMonitorTest {
     @Test
     fun `a transient external window does not cancel the foreground app allowance deadline`() {
         val scheduler = RecordingExpiryScheduler()
-        var foregroundPackage = rule.packageName
         val monitor = ForegroundAppMonitor(
             ruleStore = MonitorRuleStore(rule),
             usageLookup = FixedTodayUsageLookup(4),
@@ -113,12 +112,10 @@ class ForegroundAppMonitorTest {
             presenter = RecordingInterventionPresenter(),
             clock = Clock.fixed(now, ZoneId.of("Asia/Shanghai")),
             expiryScheduler = scheduler,
-            foregroundPackageLookup = { foregroundPackage },
         )
 
         monitor.onAppEnteredForeground(rule.packageName)
-        foregroundPackage = "com.example.advertising"
-        monitor.onAppEnteredForeground(foregroundPackage)
+        monitor.onAppEnteredForeground("com.example.advertising")
 
         assertEquals(null, scheduler.cancelledPackageName)
     }
@@ -127,7 +124,6 @@ class ForegroundAppMonitorTest {
     fun `allowance deadline does not intervene after the target app actually leaves foreground`() {
         val scheduler = RecordingExpiryScheduler()
         val presenter = RecordingInterventionPresenter()
-        var foregroundPackage = rule.packageName
         val monitor = ForegroundAppMonitor(
             ruleStore = MonitorRuleStore(rule.copy(dailyAllowance = DailyAllowance.ofMinutes(5))),
             usageLookup = SequenceTodayUsageLookup(4, 5),
@@ -137,11 +133,10 @@ class ForegroundAppMonitorTest {
             presenter = presenter,
             clock = Clock.fixed(now, ZoneId.of("Asia/Shanghai")),
             expiryScheduler = scheduler,
-            foregroundPackageLookup = { foregroundPackage },
         )
 
         monitor.onAppEnteredForeground(rule.packageName)
-        foregroundPackage = "com.example.other"
+        monitor.onAppEnteredForeground("com.example.other")
         scheduler.expire()
 
         assertTrue(presenter.presented.isEmpty())
@@ -173,11 +168,39 @@ class ForegroundAppMonitorTest {
     }
 
     @Test
+    fun `continued hard restriction use is reevaluated from accessibility foreground state when override expires`() {
+        val clock = MutableMonitorClock(now, ZoneId.of("Asia/Shanghai"))
+        val presenter = RecordingInterventionPresenter()
+        val scheduler = RecordingExpiryScheduler()
+        val emergencyStore = MonitorEmergencyOverrideStore()
+        val emergencyOverrides = EmergencyOverrideManager(emergencyStore, clock.zone)
+        emergencyOverrides.grant(rule.packageName, "必要联系", now)
+        val monitor = ForegroundAppMonitor(
+            ruleStore = MonitorRuleStore(rule),
+            usageLookup = FixedTodayUsageLookup(30),
+            protectionStatus = { true },
+            exhaustedAllowances = MemoryExhaustedAllowanceStore().apply {
+                markExhausted(rule.packageName, now.atZone(clock.zone).toLocalDate())
+            },
+            decisionEngine = DefaultRestrictionDecisionEngine,
+            presenter = presenter,
+            clock = clock,
+            expiryScheduler = scheduler,
+            emergencyOverrides = emergencyOverrides,
+        )
+
+        assertEquals(ProtectionDecision.Allow, monitor.onAppEnteredForeground(rule.packageName))
+        clock.instant = now.plusSeconds(300)
+        scheduler.expire()
+
+        assertEquals(RestrictionLevel.HARD, presenter.presented.single().level)
+    }
+
+    @Test
     fun `leaving a soft restricted app makes its pending expiry harmless`() {
         val softRule = rule.copy(level = RestrictionLevel.SOFT, dailyAllowance = DailyAllowance.ofMinutes(60))
         val scheduler = RecordingExpiryScheduler()
         val presenter = RecordingInterventionPresenter()
-        var foregroundPackage = softRule.packageName
         val monitor = ForegroundAppMonitor(
             ruleStore = MonitorRuleStore(softRule),
             usageLookup = FixedTodayUsageLookup(60),
@@ -188,12 +211,10 @@ class ForegroundAppMonitorTest {
             clock = Clock.fixed(now, ZoneId.of("Asia/Shanghai")),
             accessWindows = MutableAccessWindowStore(now.plusSeconds(300)),
             expiryScheduler = scheduler,
-            foregroundPackageLookup = { foregroundPackage },
         )
 
         monitor.onAppEnteredForeground(softRule.packageName)
-        foregroundPackage = "com.example.other"
-        monitor.onAppEnteredForeground(foregroundPackage)
+        monitor.onAppEnteredForeground("com.example.other")
         scheduler.expire()
 
         assertTrue(presenter.presented.isEmpty())
@@ -224,6 +245,21 @@ class ForegroundAppMonitorTest {
 
         assertEquals("com.example.video", currentForegroundPackage(events))
     }
+}
+
+private class MutableMonitorClock(
+    var instant: Instant,
+    private val zoneId: ZoneId,
+) : Clock() {
+    override fun getZone() = zoneId
+    override fun withZone(zone: ZoneId) = MutableMonitorClock(instant, zone)
+    override fun instant() = instant
+}
+
+private class MonitorEmergencyOverrideStore : EmergencyOverrideStore {
+    private var record: EmergencyOverrideRecord? = null
+    override fun load() = record
+    override fun save(record: EmergencyOverrideRecord) { this.record = record }
 }
 
 private class MutableAccessWindowStore(var endsAt: Instant?) : AccessWindowStore {

@@ -65,6 +65,7 @@ fun PermissionGuidanceRoute(
         state = state,
         onOpenUsageAccessSettings = controller::openUsageAccessSettings,
         onOpenAccessibilitySettings = controller::openAccessibilitySettings,
+        onOpenExactAlarmSettings = controller::openExactAlarmSettings,
         onOpenBatteryOptimizationSettings = controller::openBatteryOptimizationSettings,
         onOpenBackgroundRunSettings = controller::openBackgroundRunSettings,
         onSelectRestrictedApp = onSelectRestrictedApp,
@@ -77,6 +78,7 @@ fun OneSecApp(
     state: PermissionGuidanceState,
     onOpenUsageAccessSettings: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenExactAlarmSettings: () -> Unit = {},
     onOpenBatteryOptimizationSettings: () -> Unit = {},
     onOpenBackgroundRunSettings: () -> Unit = {},
     onSelectRestrictedApp: () -> Unit = {},
@@ -150,6 +152,13 @@ fun OneSecApp(
                     granted = state.accessibilityGranted,
                     buttonLabel = "打开无障碍设置",
                     onOpenSettings = onOpenAccessibilitySettings,
+                )
+                PermissionCard(
+                    title = "精确到期提醒",
+                    explanation = "用于在每日额度、使用窗口或紧急解锁到期时立即重新执行限制。",
+                    granted = state.exactAlarmsGranted,
+                    buttonLabel = "打开闹钟和提醒设置",
+                    onOpenSettings = onOpenExactAlarmSettings,
                 )
                 Button(onClick = onSelectRestrictedApp) {
                     Text("选择受限应用")

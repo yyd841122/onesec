@@ -3,11 +3,13 @@ package com.example.onesec
 data class PermissionSnapshot(
     val usageAccessGranted: Boolean,
     val accessibilityGranted: Boolean,
+    val exactAlarmsGranted: Boolean = true,
 )
 
 data class PermissionGuidanceState(
     val usageAccessGranted: Boolean,
     val accessibilityGranted: Boolean,
+    val exactAlarmsGranted: Boolean,
     val protectionHealth: ProtectionHealth,
     val recoveryHealth: RecoveryHealth = RecoveryHealth.NOT_REQUIRED,
 ) {
@@ -28,7 +30,7 @@ data class PermissionGuidanceState(
         get() = when {
             recoveryHealth == RecoveryHealth.NEEDS_REPAIR ->
                 "系统未能在重启后恢复保护，请检查后台运行设置。"
-            protectionAvailable -> "两项核心权限均有效，使用数据可靠。"
+            protectionAvailable -> "三项核心权限均有效，使用数据和到期拦截可靠。"
             else -> "使用数据不可靠：请修复下方缺失的核心权限。"
         }
 }
@@ -43,10 +45,12 @@ fun permissionGuidanceState(
     recoveryHealth: RecoveryHealth = RecoveryHealth.NOT_REQUIRED,
 ): PermissionGuidanceState {
     val protectionAvailable = snapshot.usageAccessGranted && snapshot.accessibilityGranted &&
+        snapshot.exactAlarmsGranted &&
         recoveryHealth != RecoveryHealth.NEEDS_REPAIR
     return PermissionGuidanceState(
         usageAccessGranted = snapshot.usageAccessGranted,
         accessibilityGranted = snapshot.accessibilityGranted,
+        exactAlarmsGranted = snapshot.exactAlarmsGranted,
         protectionHealth = if (protectionAvailable) {
             ProtectionHealth.AVAILABLE
         } else {
@@ -62,6 +66,8 @@ interface PermissionGateway {
     fun openUsageAccessSettings()
 
     fun openAccessibilitySettings()
+
+    fun openExactAlarmSettings() = Unit
 
     fun openBatteryOptimizationSettings() = Unit
 
@@ -83,6 +89,8 @@ class PermissionGuidanceController(
     fun openUsageAccessSettings() = gateway.openUsageAccessSettings()
 
     fun openAccessibilitySettings() = gateway.openAccessibilitySettings()
+
+    fun openExactAlarmSettings() = gateway.openExactAlarmSettings()
 
     fun openBatteryOptimizationSettings() = gateway.openBatteryOptimizationSettings()
 

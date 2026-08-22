@@ -1,11 +1,13 @@
 package com.example.onesec
 
 import android.app.AppOpsManager
+import android.app.AlarmManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Process
+import android.os.Build
 import android.provider.Settings
 
 class AndroidPermissionGateway(
@@ -15,6 +17,7 @@ class AndroidPermissionGateway(
         PermissionSnapshot(
             usageAccessGranted = hasUsageAccess(),
             accessibilityGranted = isAccessibilityServiceEnabled(),
+            exactAlarmsGranted = canScheduleExactAlarms(),
         )
 
     override fun openUsageAccessSettings() {
@@ -23,6 +26,10 @@ class AndroidPermissionGateway(
 
     override fun openAccessibilitySettings() {
         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    override fun openExactAlarmSettings() {
+        context.startActivity(exactAlarmPermissionIntent(context.packageName))
     }
 
     override fun openBatteryOptimizationSettings() {
@@ -68,7 +75,16 @@ class AndroidPermissionGateway(
             .split(':')
             .any { it.equals(serviceName, ignoreCase = true) }
     }
+
+    private fun canScheduleExactAlarms(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 }
+
+internal fun exactAlarmPermissionIntent(packageName: String): Intent = Intent(
+    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+    Uri.parse("package:$packageName"),
+)
 
 internal fun batteryOptimizationIntent(packageName: String): Intent = Intent(
     Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,

@@ -80,13 +80,14 @@ class ForegroundAppMonitor(
     private val accessWindows: AccessWindowStore? = null,
     private val expiryScheduler: TemporaryUseExpiryScheduler? = null,
     private val emergencyOverrides: EmergencyOverrideManager? = null,
-    private val foregroundPackageLookup: (() -> String?)? = null,
     private val historyStore: LocalHistoryStore? = null,
     private val usageHistoryLookup: UsageHistoryLookup? = null,
 ) {
     private var scheduledPackageName: String? = null
+    private var foregroundPackageName: String? = null
 
     fun onAppEnteredForeground(packageName: String): ProtectionDecision {
+        foregroundPackageName = packageName
         val rule = ruleStore.loadRules().firstOrNull { it.packageName == packageName }
             ?: return ProtectionDecision.Allow
         val now = clock.instant()
@@ -133,7 +134,7 @@ class ForegroundAppMonitor(
             scheduledPackageName = packageName
             expiryScheduler?.schedule(packageName, checkNotNull(endsAt)) {
                 scheduledPackageName = null
-                if (foregroundPackageLookup == null || foregroundPackageLookup.invoke() == packageName) {
+                if (foregroundPackageName == packageName) {
                     onAppEnteredForeground(packageName)
                 }
             }
@@ -141,7 +142,7 @@ class ForegroundAppMonitor(
             scheduledPackageName = packageName
             expiryScheduler?.schedule(packageName, now.plus(allowanceDuration.minus(usedDuration))) {
                 scheduledPackageName = null
-                if (foregroundPackageLookup == null || foregroundPackageLookup.invoke() == packageName) {
+                if (foregroundPackageName == packageName) {
                     onAppEnteredForeground(packageName)
                 }
             }

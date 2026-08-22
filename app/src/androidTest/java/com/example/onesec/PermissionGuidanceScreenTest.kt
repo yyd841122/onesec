@@ -110,6 +110,27 @@ class PermissionGuidanceScreenTest {
         assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, intent.action)
         assertEquals("package:com.example.onesec", intent.data.toString())
     }
+
+    @Test
+    fun exactAlarmGuidanceOpensOneSecSpecialAccessSettings() {
+        var opens = 0
+        composeRule.setContent {
+            OneSecApp(
+                state = permissionGuidanceState(PermissionSnapshot(true, true, exactAlarmsGranted = false)),
+                onOpenUsageAccessSettings = {},
+                onOpenAccessibilitySettings = {},
+                onOpenExactAlarmSettings = { opens += 1 },
+            )
+        }
+
+        composeRule.onNodeWithText("精确到期提醒").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("打开闹钟和提醒设置").performScrollTo().performClick()
+        assertEquals(1, opens)
+
+        val intent = exactAlarmPermissionIntent("com.example.onesec")
+        assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, intent.action)
+        assertEquals("package:com.example.onesec", intent.data.toString())
+    }
 }
 
 private class TestLifecycleOwner : LifecycleOwner {
