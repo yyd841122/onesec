@@ -112,8 +112,21 @@ fun usedTodayDuration(
     now: Instant,
     zoneId: ZoneId,
 ): Duration {
-    val todayStart = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant()
-    return Duration.ofMillis(foregroundMillis(packageName, events, todayStart, now))
+    return usedDurationOnLocalDate(packageName, events, now.atZone(zoneId).toLocalDate(), now, zoneId)
+}
+
+fun usedDurationOnLocalDate(
+    packageName: String,
+    events: List<UsageEvent>,
+    localDate: java.time.LocalDate,
+    now: Instant,
+    zoneId: ZoneId,
+): Duration {
+    val dayStart = localDate.atStartOfDay(zoneId).toInstant()
+    val dayEnd = localDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+    val effectiveEnd = minOf(now, dayEnd)
+    if (!effectiveEnd.isAfter(dayStart)) return Duration.ZERO
+    return Duration.ofMillis(foregroundMillis(packageName, events, dayStart, effectiveEnd))
 }
 
 private fun foregroundMillis(
@@ -136,7 +149,10 @@ private fun foregroundMillis(
         countingSince = null
     }
 
-    events.sortedBy(UsageEvent::timestamp).forEach { event ->
+    events.asSequence()
+        .filter { it.timestamp <= now }
+        .sortedBy(UsageEvent::timestamp)
+        .forEach { event ->
         if (
             pendingBackgroundAt != null &&
             event.type == UsageEventType.FOREGROUND &&

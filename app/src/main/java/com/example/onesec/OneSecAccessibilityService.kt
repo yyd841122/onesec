@@ -145,9 +145,10 @@ private fun createForegroundAppMonitor(
 ): ForegroundAppMonitor {
     val permissionGateway = AndroidPermissionGateway(context)
     val historyStore = SharedPreferencesLocalHistoryStore(context, clock.zone)
+    val historyLookup = UsageEventsTodayUsageLookup(usageEvents, clock.zone)
     return ForegroundAppMonitor(
         ruleStore = SharedPreferencesRestrictionRuleStore(context),
-        usageLookup = UsageEventsTodayUsageLookup(usageEvents, clock.zone),
+        usageLookup = historyLookup,
         protectionStatus = {
             permissionGuidanceState(permissionGateway.readPermissions()).protectionAvailable
         },
@@ -167,6 +168,7 @@ private fun createForegroundAppMonitor(
             currentForegroundPackage(usageEvents.eventsBetween(now.minus(Duration.ofDays(1)), now))
         },
         historyStore = historyStore,
+        usageHistoryLookup = historyLookup::usedDurationOn,
     )
 }
 

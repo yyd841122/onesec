@@ -9,6 +9,10 @@ fun interface TodayUsageLookup {
     fun usedDuration(packageName: String, now: Instant): java.time.Duration
 }
 
+fun interface UsageHistoryLookup {
+    fun usedDuration(packageName: String, localDate: LocalDate, now: Instant): java.time.Duration
+}
+
 class UsageEventsTodayUsageLookup(
     private val usageEvents: UsageEventSource,
     private val zoneId: ZoneId,
@@ -19,6 +23,15 @@ class UsageEventsTodayUsageLookup(
         now = now,
         zoneId = zoneId,
     )
+
+    fun usedDurationOn(packageName: String, localDate: LocalDate, now: Instant): java.time.Duration =
+        usedDurationOnLocalDate(
+            packageName,
+            usageEvents.eventsBetween(Instant.EPOCH, now),
+            localDate,
+            now,
+            zoneId,
+        )
 }
 
 fun interface ProtectionStatusProvider {
@@ -69,6 +82,7 @@ class ForegroundAppMonitor(
     private val emergencyOverrides: EmergencyOverrideManager? = null,
     private val foregroundPackageLookup: (() -> String?)? = null,
     private val historyStore: LocalHistoryStore? = null,
+    private val usageHistoryLookup: UsageHistoryLookup? = null,
 ) {
     private var scheduledPackageName: String? = null
 
@@ -83,10 +97,7 @@ class ForegroundAppMonitor(
         } else {
             java.time.Duration.ZERO
         }
-        historyStore?.pruneBefore(localDate.minusDays(89))
-        if (protectionAvailable) {
-            historyStore?.recordUsage(packageName, localDate, reportedUsedDuration.roundedUpMinutes())
-        }
+        recordUsageHistory(packageName, now, localDate, protectionAvailable, reportedUsedDuration)
         val allowanceDuration = java.time.Duration.ofMinutes(rule.dailyAllowance.minutes.toLong())
         val usedDuration = if (exhaustedAllowances.isExhausted(packageName, localDate)) {
             maxOf(reportedUsedDuration, allowanceDuration)
@@ -139,15 +150,34 @@ class ForegroundAppMonitor(
     }
 
     fun onAppLeftForeground(packageName: String) {
-        val history = historyStore ?: return
+        if (historyStore == null) return
         if (ruleStore.loadRules().none { it.packageName == packageName }) return
         if (!protectionStatus.protectionAvailable()) return
         val now = clock.instant()
         val localDate = now.atZone(clock.zone).toLocalDate()
         val usedDuration = usageLookup.usedDuration(packageName, now)
-        history.run {
-            pruneBefore(localDate.minusDays(89))
-            recordUsage(packageName, localDate, usedDuration.roundedUpMinutes())
+        recordUsageHistory(
+            packageName,
+            now,
+            localDate,
+            protectionAvailable = true,
+            todayDuration = usedDuration,
+        )
+    }
+
+    private fun recordUsageHistory(
+        packageName: String,
+        now: Instant,
+        localDate: LocalDate,
+        protectionAvailable: Boolean,
+        todayDuration: java.time.Duration,
+    ) {
+        val history = historyStore ?: return
+        history.pruneBefore(localDate.minusDays(89))
+        if (!protectionAvailable) return
+        history.recordUsage(packageName, localDate, todayDuration.roundedUpMinutes())
+        usageHistoryLookup?.usedDuration(packageName, localDate.minusDays(1), now)?.let { yesterday ->
+            history.recordUsage(packageName, localDate.minusDays(1), yesterday.roundedUpMinutes())
         }
     }
 }

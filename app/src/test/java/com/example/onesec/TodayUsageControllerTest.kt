@@ -146,6 +146,24 @@ class TodayUsageControllerTest {
     }
 
     @Test
+    fun `completed prior local day can be reconstructed after an app crosses midnight`() {
+        val events = listOf(
+            event("2026-08-20T15:58:00Z", UsageEventType.FOREGROUND),
+            event("2026-08-20T16:03:00Z", UsageEventType.BACKGROUND),
+        )
+
+        val previousDay = usedDurationOnLocalDate(
+            rule.packageName,
+            events,
+            java.time.LocalDate.of(2026, 8, 20),
+            now,
+            zone,
+        )
+
+        assertEquals(Duration.ofMinutes(2), previousDay)
+    }
+
+    @Test
     fun `foreground state older than yesterday is still carried across local midnight`() {
         val controller = controllerWith(
             events = listOf(
