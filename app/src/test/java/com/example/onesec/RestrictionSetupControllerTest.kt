@@ -9,6 +9,26 @@ import java.time.ZoneOffset
 
 class RestrictionSetupControllerTest {
     @Test
+    fun `existing rule can be opened directly for editing without the app catalog`() {
+        val current = RestrictedAppRule(
+            "com.example.video",
+            "短视频",
+            RestrictionLevel.HARD,
+            DailyAllowance.ofMinutes(30),
+        )
+        val controller = RestrictionSetupController(
+            appCatalog = FakeAppCatalog(emptyList()),
+            ruleStore = FakeRestrictionRuleStore(current),
+        )
+
+        controller.editRule(current.packageName)
+
+        assertEquals(current.level, controller.state.editor?.level)
+        assertEquals(current.dailyAllowance, controller.state.editor?.dailyAllowance)
+        assertEquals(current.packageName, controller.state.editor?.app?.packageName)
+    }
+
+    @Test
     fun `user can choose a soft restriction with its sixty minute default`() {
         val controller = RestrictionSetupController(
             FakeAppCatalog(listOf(InstalledApp("com.example.video", "短视频"))),

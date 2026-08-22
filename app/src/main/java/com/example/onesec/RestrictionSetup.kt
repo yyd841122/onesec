@@ -123,6 +123,17 @@ class RestrictionSetupController(
         )
     }
 
+    fun editRule(packageName: String) {
+        val current = state.savedRules.firstOrNull { it.packageName == packageName } ?: return
+        state = state.copy(
+            editor = RestrictionEditorState(
+                app = InstalledApp(current.packageName, current.displayName),
+                level = current.level,
+                dailyAllowance = current.dailyAllowance,
+            ),
+        )
+    }
+
     fun changeDailyAllowance(minutes: Int) {
         val editor = state.editor ?: return
         state = state.copy(editor = editor.copy(dailyAllowance = DailyAllowance.ofMinutes(minutes)))

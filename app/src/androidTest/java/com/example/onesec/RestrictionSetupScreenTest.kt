@@ -79,7 +79,34 @@ class RestrictionSetupScreenTest {
         composeRule.onNodeWithText("当前生效规则").assertIsDisplayed()
         composeRule.onNodeWithText("强限制 · 每日 30 分钟").assertIsDisplayed()
         composeRule.onNodeWithText("次日即将生效").assertIsDisplayed()
-        composeRule.onNodeWithText("短视频：每日额度调整为 45 分钟（2026-08-22 生效）")
+        composeRule.onNodeWithText("短视频：改为强限制，每日额度 45 分钟（2026-08-22 生效）")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun existingHardRuleCanBeEditedToCreateTomorrowSoftRestriction() {
+        val current = RestrictedAppRule(
+            "com.example.video",
+            "短视频",
+            RestrictionLevel.HARD,
+            DailyAllowance.ofMinutes(30),
+        )
+        val controller = RestrictionSetupController(
+            appCatalog = ScreenAppCatalog(emptyList()),
+            ruleStore = ScreenRuleStore(current),
+            clock = Clock.fixed(Instant.parse("2026-08-21T10:00:00Z"), ZoneOffset.UTC),
+        )
+        composeRule.setContent { RestrictionSetupRoute(controller, onBack = {}) }
+
+        composeRule.onNodeWithText("编辑规则").performClick()
+        composeRule.onNodeWithText("强限制").assertIsDisplayed()
+        composeRule.onNodeWithText("30 分钟").assertIsDisplayed()
+        composeRule.onNodeWithText("弱限制").performClick()
+        composeRule.onNodeWithText("保存弱限制").performClick()
+
+        composeRule.onNodeWithText("强限制 · 每日 30 分钟").assertIsDisplayed()
+        composeRule.onNodeWithText("次日即将生效").assertIsDisplayed()
+        composeRule.onNodeWithText("短视频：改为弱限制，每日额度 60 分钟（2026-08-22 生效）")
             .assertIsDisplayed()
     }
 }

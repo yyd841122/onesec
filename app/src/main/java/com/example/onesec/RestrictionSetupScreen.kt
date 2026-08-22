@@ -52,6 +52,10 @@ fun RestrictionSetupRoute(
             state = controller.state
             showingCatalog = false
         },
+        onEditRule = { packageName ->
+            controller.editRule(packageName)
+            state = controller.state
+        },
         onChangeAllowance = { minutes ->
             controller.changeDailyAllowance(minutes)
             state = controller.state
@@ -90,6 +94,7 @@ private fun RestrictionSetupScreen(
     showingCatalog: Boolean,
     onOpenCatalog: () -> Unit,
     onSelectApp: (String) -> Unit,
+    onEditRule: (String) -> Unit,
     onChangeAllowance: (Int) -> Unit,
     onChangeLevel: (RestrictionLevel) -> Unit,
     onSave: () -> Unit,
@@ -123,6 +128,7 @@ private fun RestrictionSetupScreen(
                         pendingRelaxations = state.pendingRelaxations,
                         protectionEnabled = state.protectionEnabled,
                         onOpenCatalog = onOpenCatalog,
+                        onEditRule = onEditRule,
                         onTightenToHard = onTightenToHard,
                         onRemoveRule = onRemoveRule,
                         onDisableProtection = onDisableProtection,
@@ -143,6 +149,7 @@ private fun RestrictionSummary(
     pendingRelaxations: List<PendingRelaxation>,
     protectionEnabled: Boolean,
     onOpenCatalog: () -> Unit,
+    onEditRule: (String) -> Unit,
     onTightenToHard: (String) -> Unit,
     onRemoveRule: (String) -> Unit,
     onDisableProtection: () -> Unit,
@@ -164,6 +171,9 @@ private fun RestrictionSummary(
                     Text(savedRule.displayName, style = MaterialTheme.typography.titleLarge)
                     Text("${savedRule.level.displayName} · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
                     Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = { onEditRule(savedRule.packageName) }) {
+                        Text("编辑规则")
+                    }
                     if (savedRule.level == RestrictionLevel.SOFT) {
                         Button(onClick = { onTightenToHard(savedRule.packageName) }) {
                             Text("立即改为强限制")
@@ -206,7 +216,7 @@ private val RestrictionLevel.displayName: String
 
 private fun PendingRelaxation.displayText(): String = when (this) {
     is PendingRelaxation.ReplaceRule ->
-        "${replacement.displayName}：每日额度调整为 ${replacement.dailyAllowance.minutes} 分钟（$effectiveDate 生效）"
+        "${replacement.displayName}：改为${replacement.level.displayName}，每日额度 ${replacement.dailyAllowance.minutes} 分钟（$effectiveDate 生效）"
     is PendingRelaxation.RemoveRule ->
         "${app.displayName}：删除强限制（$effectiveDate 生效）"
     is PendingRelaxation.DisableProtection -> "关闭保护（$effectiveDate 生效）"
