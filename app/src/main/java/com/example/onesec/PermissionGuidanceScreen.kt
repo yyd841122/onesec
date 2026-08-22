@@ -9,7 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,30 +86,21 @@ fun OneSecApp(
     onSelectRestrictedApp: () -> Unit = {},
     onOpenToday: () -> Unit = {},
 ) {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+    OneSecTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
                 horizontalAlignment = Alignment.Start,
             ) {
-                Text(
-                    text = "OneSec 权限引导",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
+                ScreenHeader(
+                    eyebrow = "OneSec · 专注保护",
+                    title = "准备好你的保护",
+                    description = "完成必要设置后，OneSec 才能稳定识别并限制分心应用。",
                 )
-                Text(
-                    text = state.protectionStatus,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = if (state.protectionAvailable) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                    fontWeight = FontWeight.Bold,
-                )
+                StatusPill(state.protectionStatus, state.protectionAvailable)
                 Text(
                     text = state.statusExplanation,
                     style = MaterialTheme.typography.bodyLarge,
@@ -124,12 +117,15 @@ fun OneSecApp(
                     buttonLabel = "打开使用情况访问设置",
                     onOpenSettings = onOpenUsageAccessSettings,
                 )
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("OPPO / ColorOS 后台保护", style = MaterialTheme.typography.titleLarge)
+                        SectionTitle("OPPO / ColorOS 后台保护")
                         Text(
                             "允许 OneSec 后台运行和自启动，并关闭电池优化。",
                             style = MaterialTheme.typography.bodyMedium,
@@ -138,10 +134,10 @@ fun OneSecApp(
                             "在 ColorOS 11.1 中，还请在应用管理中允许自启动、关联启动和后台活动。",
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Button(onClick = onOpenBatteryOptimizationSettings) {
+                        Button(onClick = onOpenBatteryOptimizationSettings, modifier = Modifier.fillMaxWidth()) {
                             Text("打开电池优化设置")
                         }
-                        Button(onClick = onOpenBackgroundRunSettings) {
+                        OutlinedButton(onClick = onOpenBackgroundRunSettings, modifier = Modifier.fillMaxWidth()) {
                             Text("打开 OneSec 应用设置")
                         }
                     }
@@ -160,10 +156,10 @@ fun OneSecApp(
                     buttonLabel = "打开闹钟和提醒设置",
                     onOpenSettings = onOpenExactAlarmSettings,
                 )
-                Button(onClick = onSelectRestrictedApp) {
+                Button(onClick = onSelectRestrictedApp, modifier = Modifier.fillMaxWidth()) {
                     Text("选择受限应用")
                 }
-                Button(onClick = onOpenToday) {
+                OutlinedButton(onClick = onOpenToday, modifier = Modifier.fillMaxWidth()) {
                     Text("查看今日概览")
                 }
             }
@@ -179,23 +175,19 @@ private fun PermissionCard(
     buttonLabel: String,
     onOpenSettings: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            SectionTitle(title)
             Text(explanation, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = if (granted) "已授予" else "未授予",
-                color = if (granted) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
-                fontWeight = FontWeight.Bold,
-            )
-            Button(onClick = onOpenSettings) {
+            StatusPill(if (granted) "已授予" else "等待授权", granted)
+            Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
                 Text(buttonLabel)
             }
         }

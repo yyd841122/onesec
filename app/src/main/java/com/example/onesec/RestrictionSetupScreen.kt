@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -104,15 +105,23 @@ private fun RestrictionSetupScreen(
     onCancelSelection: () -> Unit,
     onBack: () -> Unit,
 ) {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+    OneSecTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Text("受限应用", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                ScreenHeader(
+                    eyebrow = "保护规则",
+                    title = when {
+                        state.editor != null -> "编辑规则"
+                        showingCatalog -> "选择应用"
+                        else -> "受限应用"
+                    },
+                    description = "收紧立即生效，放宽或移除将在次日生效。",
+                )
 
                 when {
                     state.editor != null -> RestrictionEditor(
@@ -135,7 +144,7 @@ private fun RestrictionSetupScreen(
                     )
                 }
 
-                OutlinedButton(onClick = onBack) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                     Text("返回权限引导")
                 }
             }
@@ -154,50 +163,59 @@ private fun RestrictionSummary(
     onRemoveRule: (String) -> Unit,
     onDisableProtection: () -> Unit,
 ) {
-    Text("当前生效规则", style = MaterialTheme.typography.titleLarge)
+    SectionTitle("当前生效规则", if (savedRules.isEmpty()) null else "${savedRules.size} 个应用")
     if (!protectionEnabled) {
-        Text("保护已关闭", color = MaterialTheme.colorScheme.error)
+        StatusPill("保护已关闭", false)
     }
     if (savedRules.isEmpty()) {
         Text("尚未选择受限应用", style = MaterialTheme.typography.bodyLarge)
     } else {
-        Text("已选择 ${savedRules.size} 个受限应用", style = MaterialTheme.typography.titleMedium)
         savedRules.forEach { savedRule ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(savedRule.displayName, style = MaterialTheme.typography.titleLarge)
-                    Text("${savedRule.level.displayName} · 每日 ${savedRule.dailyAllowance.minutes} 分钟")
+                    StatusPill(
+                        "${savedRule.level.displayName} · 每日 ${savedRule.dailyAllowance.minutes} 分钟",
+                        savedRule.level == RestrictionLevel.SOFT,
+                    )
                     Text(savedRule.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = { onEditRule(savedRule.packageName) }) {
+                    Button(onClick = { onEditRule(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
                         Text("编辑规则")
                     }
                     if (savedRule.level == RestrictionLevel.SOFT) {
-                        Button(onClick = { onTightenToHard(savedRule.packageName) }) {
+                        OutlinedButton(onClick = { onTightenToHard(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
                             Text("立即改为强限制")
                         }
                     }
-                    OutlinedButton(onClick = { onRemoveRule(savedRule.packageName) }) {
+                    OutlinedButton(onClick = { onRemoveRule(savedRule.packageName) }, modifier = Modifier.fillMaxWidth()) {
                         Text("次日删除强限制")
                     }
                 }
             }
         }
     }
-    Button(onClick = onOpenCatalog) {
+    Button(onClick = onOpenCatalog, modifier = Modifier.fillMaxWidth()) {
         Text("选择受限应用")
     }
     if (protectionEnabled) {
-        OutlinedButton(onClick = onDisableProtection) {
+        OutlinedButton(onClick = onDisableProtection, modifier = Modifier.fillMaxWidth()) {
             Text("次日关闭保护")
         }
     }
     if (pendingRelaxations.isNotEmpty()) {
-        Text("次日即将生效", style = MaterialTheme.typography.titleLarge)
+        SectionTitle("次日即将生效", "${pendingRelaxations.size} 项")
         pendingRelaxations.forEach { pending ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            ) {
                 Text(
                     text = pending.displayText(),
                     modifier = Modifier.padding(16.dp),
@@ -227,7 +245,7 @@ private fun AppCatalogList(
     apps: List<InstalledApp>,
     onSelectApp: (String) -> Unit,
 ) {
-    Text("选择设备上的应用", style = MaterialTheme.typography.titleLarge)
+    SectionTitle("设备上的应用", "${apps.size} 个")
     if (apps.isEmpty()) {
         Text("没有找到可管理的应用")
     }
@@ -250,7 +268,12 @@ private fun RestrictionEditor(
     onSave: () -> Unit,
     onCancelSelection: () -> Unit,
 ) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
     Row(
+        modifier = Modifier.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -260,6 +283,8 @@ private fun RestrictionEditor(
             Text(if (editor.level == RestrictionLevel.SOFT) "弱限制" else "强限制")
         }
     }
+    }
+    SectionTitle("限制方式")
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(onClick = { onChangeLevel(RestrictionLevel.SOFT) }) {
             Text("弱限制")
@@ -268,7 +293,7 @@ private fun RestrictionEditor(
             Text("强限制")
         }
     }
-    Text("每日额度", style = MaterialTheme.typography.titleMedium)
+    SectionTitle("每日额度")
     Text("${editor.dailyAllowance.minutes} 分钟", style = MaterialTheme.typography.headlineMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(
@@ -282,10 +307,10 @@ private fun RestrictionEditor(
             Text("增加 5 分钟")
         }
     }
-    Button(onClick = onSave) {
+    Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
         Text(if (editor.level == RestrictionLevel.SOFT) "保存弱限制" else "保存强限制")
     }
-    OutlinedButton(onClick = onCancelSelection) {
+    OutlinedButton(onClick = onCancelSelection, modifier = Modifier.fillMaxWidth()) {
         Text("取消选择")
     }
 }

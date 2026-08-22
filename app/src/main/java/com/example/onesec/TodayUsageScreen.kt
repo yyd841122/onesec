@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -65,47 +66,58 @@ fun TodayUsageScreen(
     onClearAllLocalData: () -> Unit = {},
 ) {
     var confirmingClear by remember { mutableStateOf(false) }
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+    OneSecTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Text("今日概览", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                ScreenHeader(
+                    eyebrow = "今天 · 你的节奏",
+                    title = "今日概览",
+                    description = "看清使用情况，不评判，只帮助你做下一次选择。",
+                )
                 if (!state.protectionAvailable) {
-                    Text(
-                        "保护失效",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    StatusPill("保护失效", false)
                     Text(
                         "核心权限已失效，今日用量不可靠。修复权限后再显示剩余额度。",
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else if (state.apps.isEmpty()) {
-                    Text("尚未选择受限应用")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    ) {
+                        Text("尚未选择受限应用", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.bodyLarge)
+                    }
                 } else {
-                    Text(
-                        "全部受限应用今日总用时 ${state.totalUsedMinutes} 分钟",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text("今日拦截 ${state.interventionCount} 次")
-                    Text("今日紧急解锁：${if (state.emergencyOverrideUsed) "已使用" else "未使用"}")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("${state.totalUsedMinutes} 分钟", style = MaterialTheme.typography.headlineLarge)
+                            Text("全部受限应用今日总用时", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("拦截 ${state.interventionCount} 次 · 紧急解锁${if (state.emergencyOverrideUsed) "已使用" else "未使用"}")
+                        }
+                    }
                     state.globalPendingRelaxation?.let { pending ->
                         Text("待生效：${pending.overviewText()}", color = MaterialTheme.colorScheme.primary)
                     }
                     Text("不足一分钟的用时按一分钟计入。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SectionTitle("应用明细", "${state.apps.size} 个")
                     state.apps.forEach { app -> TodayAppUsageCard(app) }
                 }
-                OutlinedButton(onClick = { confirmingClear = true }) {
-                    Text("清除全部本地数据")
-                }
-                OutlinedButton(onClick = onBack) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                     Text("返回权限引导")
+                }
+                OutlinedButton(onClick = { confirmingClear = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("清除全部本地数据")
                 }
             }
         }
@@ -130,15 +142,19 @@ fun TodayUsageScreen(
 
 @Composable
 private fun TodayAppUsageCard(app: TodayAppUsage) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(app.displayName, style = MaterialTheme.typography.titleLarge)
-            Text(if (app.level == RestrictionLevel.HARD) "强限制" else "弱限制")
+            StatusPill(if (app.level == RestrictionLevel.HARD) "强限制" else "弱限制", app.level == RestrictionLevel.SOFT)
             Text("今日已用 ${app.usedMinutes} 分钟")
-            Text("剩余每日额度 ${app.remainingMinutes} 分钟", fontWeight = FontWeight.Bold)
+            Text("剩余 ${app.remainingMinutes} 分钟", style = MaterialTheme.typography.headlineMedium)
             app.pendingRelaxation?.let { pending ->
                 Text("待生效：${pending.overviewText()}", color = MaterialTheme.colorScheme.primary)
             }
