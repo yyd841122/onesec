@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -285,26 +286,44 @@ private fun RestrictionEditor(
     }
     }
     SectionTitle("限制方式")
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = { onChangeLevel(RestrictionLevel.SOFT) }) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        FilterChip(
+            selected = editor.level == RestrictionLevel.SOFT,
+            onClick = { onChangeLevel(RestrictionLevel.SOFT) },
+            modifier = Modifier.weight(1f),
+            label = {
             Text("弱限制")
-        }
-        OutlinedButton(onClick = { onChangeLevel(RestrictionLevel.HARD) }) {
+            },
+        )
+        FilterChip(
+            selected = editor.level == RestrictionLevel.HARD,
+            onClick = { onChangeLevel(RestrictionLevel.HARD) },
+            modifier = Modifier.weight(1f),
+            label = {
             Text("强限制")
-        }
+            },
+        )
     }
     SectionTitle("每日额度")
     Text("${editor.dailyAllowance.minutes} 分钟", style = MaterialTheme.typography.headlineMedium)
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         OutlinedButton(
             onClick = { onChangeAllowance(editor.dailyAllowance.minutes - 5) },
+            modifier = Modifier.weight(1f),
         ) {
-            Text("减少 5 分钟")
+            Text("− 5 分钟")
         }
         OutlinedButton(
             onClick = { onChangeAllowance(editor.dailyAllowance.minutes + 5) },
+            modifier = Modifier.weight(1f),
         ) {
-            Text("增加 5 分钟")
+            Text("＋ 5 分钟")
         }
     }
     Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {

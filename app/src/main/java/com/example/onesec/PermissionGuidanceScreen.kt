@@ -2,18 +2,23 @@ package com.example.onesec
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -96,72 +101,117 @@ fun OneSecApp(
                 horizontalAlignment = Alignment.Start,
             ) {
                 ScreenHeader(
-                    eyebrow = "OneSec · 专注保护",
-                    title = "准备好你的保护",
-                    description = "完成必要设置后，OneSec 才能稳定识别并限制分心应用。",
+                    eyebrow = "OneSec",
+                    title = "专注保护",
+                    description = "让每一次打开，都成为一次主动选择。",
                 )
-                StatusPill(state.protectionStatus, state.protectionAvailable)
-                Text(
-                    text = state.statusExplanation,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (state.usageDataReliable) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
+                ProtectionOverviewCard(state)
+                SectionTitle(
+                    title = "必要权限",
+                    detail = "${state.grantedPermissionCount()}/3 已完成",
                 )
                 PermissionCard(
                     title = "使用情况访问权限",
-                    explanation = "使用情况访问权限用于统计应用前台用时。",
+                    explanation = "统计受限应用在前台的实际使用时间。",
                     granted = state.usageAccessGranted,
-                    buttonLabel = "打开使用情况访问设置",
+                    buttonLabel = "去设置",
                     onOpenSettings = onOpenUsageAccessSettings,
                 )
+                PermissionCard(
+                    title = "无障碍权限",
+                    explanation = "识别当前应用并在额度耗尽后触发限制。",
+                    granted = state.accessibilityGranted,
+                    buttonLabel = "去设置",
+                    onOpenSettings = onOpenAccessibilitySettings,
+                )
+                PermissionCard(
+                    title = "精确到期提醒",
+                    explanation = "在额度、窗口或紧急解锁到期时准时恢复限制。",
+                    granted = state.exactAlarmsGranted,
+                    buttonLabel = "去设置",
+                    onOpenSettings = onOpenExactAlarmSettings,
+                )
+                SectionTitle("设备保障", "ColorOS")
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        SectionTitle("OPPO / ColorOS 后台保护")
+                        SectionTitle("允许后台持续保护")
                         Text(
-                            "允许 OneSec 后台运行和自启动，并关闭电池优化。",
+                            "建议关闭电池优化，并允许自启动、关联启动和后台活动。",
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Text(
-                            "在 ColorOS 11.1 中，还请在应用管理中允许自启动、关联启动和后台活动。",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(onClick = onOpenBatteryOptimizationSettings, modifier = Modifier.fillMaxWidth()) {
-                            Text("打开电池优化设置")
-                        }
-                        OutlinedButton(onClick = onOpenBackgroundRunSettings, modifier = Modifier.fillMaxWidth()) {
-                            Text("打开 OneSec 应用设置")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(onClick = onOpenBatteryOptimizationSettings, modifier = Modifier.weight(1f)) {
+                                Text("电池优化")
+                            }
+                            OutlinedButton(onClick = onOpenBackgroundRunSettings, modifier = Modifier.weight(1f)) {
+                                Text("应用设置")
+                            }
                         }
                     }
                 }
-                PermissionCard(
-                    title = "无障碍权限",
-                    explanation = "无障碍权限用于识别当前应用并触发拦截。",
-                    granted = state.accessibilityGranted,
-                    buttonLabel = "打开无障碍设置",
-                    onOpenSettings = onOpenAccessibilitySettings,
-                )
-                PermissionCard(
-                    title = "精确到期提醒",
-                    explanation = "用于在每日额度、使用窗口或紧急解锁到期时立即重新执行限制。",
-                    granted = state.exactAlarmsGranted,
-                    buttonLabel = "打开闹钟和提醒设置",
-                    onOpenSettings = onOpenExactAlarmSettings,
-                )
+                SectionTitle("管理")
                 Button(onClick = onSelectRestrictedApp, modifier = Modifier.fillMaxWidth()) {
                     Text("选择受限应用")
                 }
                 OutlinedButton(onClick = onOpenToday, modifier = Modifier.fillMaxWidth()) {
                     Text("查看今日概览")
                 }
+            }
+        }
+    }
+}
+
+private fun PermissionGuidanceState.grantedPermissionCount(): Int = listOf(
+    usageAccessGranted,
+    accessibilityGranted,
+    exactAlarmsGranted,
+).count { it }
+
+@Composable
+private fun ProtectionOverviewCard(state: PermissionGuidanceState) {
+    val progress = state.grantedPermissionCount() / 3f
+    val containerColor = if (state.protectionAvailable) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(64.dp),
+                    trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                )
+                Text("${state.grantedPermissionCount()}/3", style = MaterialTheme.typography.titleMedium)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                StatusPill(state.protectionStatus, state.protectionAvailable)
+                Text(
+                    text = state.statusExplanation,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (state.protectionAvailable) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    },
+                )
             }
         }
     }
@@ -178,16 +228,30 @@ private fun PermissionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            SectionTitle(title)
-            Text(explanation, style = MaterialTheme.typography.bodyMedium)
-            StatusPill(if (granted) "已授予" else "等待授权", granted)
-            Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    explanation,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    if (granted) "已完成" else "需要授权",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                )
+            }
+            TextButton(onClick = onOpenSettings) {
                 Text(buttonLabel)
             }
         }

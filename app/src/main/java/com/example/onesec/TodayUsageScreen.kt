@@ -12,6 +12,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -142,6 +143,10 @@ fun TodayUsageScreen(
 
 @Composable
 private fun TodayAppUsageCard(app: TodayAppUsage) {
+    val dailyAllowance = app.usedMinutes + app.remainingMinutes
+    val usageProgress = if (dailyAllowance == 0) 1f else {
+        (app.usedMinutes.toFloat() / dailyAllowance).coerceIn(0f, 1f)
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -155,6 +160,11 @@ private fun TodayAppUsageCard(app: TodayAppUsage) {
             StatusPill(if (app.level == RestrictionLevel.HARD) "强限制" else "弱限制", app.level == RestrictionLevel.SOFT)
             Text("今日已用 ${app.usedMinutes} 分钟")
             Text("剩余 ${app.remainingMinutes} 分钟", style = MaterialTheme.typography.headlineMedium)
+            LinearProgressIndicator(
+                progress = { usageProgress },
+                modifier = Modifier.fillMaxWidth(),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
             app.pendingRelaxation?.let { pending ->
                 Text("待生效：${pending.overviewText()}", color = MaterialTheme.colorScheme.primary)
             }
