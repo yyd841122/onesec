@@ -38,6 +38,7 @@ data class TodayUsageState(
     val totalUsedMinutes: Int = 0,
     val interventionCount: Int = 0,
     val emergencyOverrideUsed: Boolean = false,
+    val globalPendingRelaxation: PendingRelaxation.DisableProtection? = null,
 )
 
 class TodayUsageController(
@@ -76,7 +77,7 @@ class TodayUsageController(
                 usedMinutes = usedMinutes,
                 remainingMinutes = (rule.dailyAllowance.minutes - usedMinutes).coerceAtLeast(0),
                 level = rule.level,
-                pendingRelaxation = pending.firstOrNull { it.packageNameOrNull == rule.packageName },
+                pendingRelaxation = pending.firstOrNull { it.affectedPackageName == rule.packageName },
             )
         }
         state = TodayUsageState(
@@ -85,21 +86,15 @@ class TodayUsageController(
             totalUsedMinutes = apps.sumOf(TodayAppUsage::usedMinutes),
             interventionCount = history.interventionCount,
             emergencyOverrideUsed = history.emergencyOverrideUsed,
+            globalPendingRelaxation = pending.filterIsInstance<PendingRelaxation.DisableProtection>().firstOrNull(),
         )
     }
 
     fun clearAllLocalData() {
         localDataClearer?.clearAll()
-        state = TodayUsageState(protectionAvailable = true, apps = emptyList())
+        refresh()
     }
 }
-
-private val PendingRelaxation.packageNameOrNull: String?
-    get() = when (this) {
-        is PendingRelaxation.ReplaceRule -> replacement.packageName
-        is PendingRelaxation.RemoveRule -> app.packageName
-        is PendingRelaxation.DisableProtection -> null
-    }
 
 fun usedTodayMinutes(
     packageName: String,

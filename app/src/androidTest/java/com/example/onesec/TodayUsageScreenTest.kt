@@ -68,6 +68,9 @@ class TodayUsageScreenTest {
                     totalUsedMinutes = 12,
                     interventionCount = 3,
                     emergencyOverrideUsed = true,
+                    globalPendingRelaxation = PendingRelaxation.DisableProtection(
+                        java.time.LocalDate.of(2026, 8, 22),
+                    ),
                 ),
                 onBack = {},
                 onClearAllLocalData = {},
@@ -79,6 +82,7 @@ class TodayUsageScreenTest {
         composeRule.onNodeWithText("今日拦截 3 次").assertIsDisplayed()
         composeRule.onNodeWithText("今日紧急解锁：已使用").assertIsDisplayed()
         composeRule.onNodeWithText("待生效：移除限制（2026-08-22 生效）").assertIsDisplayed()
+        composeRule.onNodeWithText("待生效：关闭保护（2026-08-22 生效）").assertIsDisplayed()
     }
 
     @Test

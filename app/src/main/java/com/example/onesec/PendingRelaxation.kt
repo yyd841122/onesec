@@ -15,6 +15,12 @@ sealed interface RuleChange {
 
 sealed interface PendingRelaxation {
     val effectiveDate: LocalDate
+    val affectedPackageName: String?
+        get() = when (this) {
+            is ReplaceRule -> replacement.packageName
+            is RemoveRule -> app.packageName
+            is DisableProtection -> null
+        }
 
     data class ReplaceRule(
         val replacement: RestrictedAppRule,

@@ -179,6 +179,7 @@ class AndroidForegroundEventHandler(
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val packageName = event.packageName?.toString() ?: return
         if (packageName == foregroundPackageName) return
+        foregroundPackageName?.let(monitor::onAppLeftForeground)
         foregroundPackageName = packageName
         monitor.onAppEnteredForeground(packageName)
     }

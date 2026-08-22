@@ -28,6 +28,12 @@ sealed interface HistoryRecord {
     ) : HistoryRecord
 }
 
+private fun HistoryRecord.localDate(zoneId: ZoneId): LocalDate = when (this) {
+    is HistoryRecord.Intervention -> at.atZone(zoneId).toLocalDate()
+    is HistoryRecord.Usage -> localDate
+    is HistoryRecord.EmergencyOverride -> localDate
+}
+
 data class TodayHistory(
     val interventionCount: Int = 0,
     val emergencyOverrideUsed: Boolean = false,
@@ -47,14 +53,7 @@ fun retainHistory(
     zoneId: ZoneId,
 ): List<HistoryRecord> {
     val cutoff = today.minusDays(89)
-    return records.filter { record ->
-        val date = when (record) {
-            is HistoryRecord.Intervention -> record.at.atZone(zoneId).toLocalDate()
-            is HistoryRecord.Usage -> record.localDate
-            is HistoryRecord.EmergencyOverride -> record.localDate
-        }
-        !date.isBefore(cutoff)
-    }
+    return records.filter { record -> !record.localDate(zoneId).isBefore(cutoff) }
 }
 
 class SharedPreferencesLocalHistoryStore(
@@ -96,12 +95,7 @@ class SharedPreferencesLocalHistoryStore(
     override fun pruneBefore(cutoff: LocalDate) {
         val retained = preferences.getStringSet(KEY_RECORDS, emptySet()).orEmpty().filter { encoded ->
             val record = decode(encoded) ?: return@filter false
-            val date = when (record) {
-                is HistoryRecord.Intervention -> record.at.atZone(zoneId).toLocalDate()
-                is HistoryRecord.Usage -> record.localDate
-                is HistoryRecord.EmergencyOverride -> record.localDate
-            }
-            !date.isBefore(cutoff)
+            !record.localDate(zoneId).isBefore(cutoff)
         }.toSet()
         preferences.edit().putStringSet(KEY_RECORDS, retained).commit()
     }

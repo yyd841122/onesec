@@ -95,6 +95,9 @@ fun TodayUsageScreen(
                     )
                     Text("今日拦截 ${state.interventionCount} 次")
                     Text("今日紧急解锁：${if (state.emergencyOverrideUsed) "已使用" else "未使用"}")
+                    state.globalPendingRelaxation?.let { pending ->
+                        Text("待生效：${pending.overviewText()}", color = MaterialTheme.colorScheme.primary)
+                    }
                     Text("不足一分钟的用时按一分钟计入。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     state.apps.forEach { app -> TodayAppUsageCard(app) }
                 }

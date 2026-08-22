@@ -83,6 +83,10 @@ class ForegroundAppMonitor(
         } else {
             java.time.Duration.ZERO
         }
+        historyStore?.pruneBefore(localDate.minusDays(89))
+        if (protectionAvailable) {
+            historyStore?.recordUsage(packageName, localDate, reportedUsedDuration.roundedUpMinutes())
+        }
         val allowanceDuration = java.time.Duration.ofMinutes(rule.dailyAllowance.minutes.toLong())
         val usedDuration = if (exhaustedAllowances.isExhausted(packageName, localDate)) {
             maxOf(reportedUsedDuration, allowanceDuration)
@@ -133,4 +137,20 @@ class ForegroundAppMonitor(
         }
         return decision
     }
+
+    fun onAppLeftForeground(packageName: String) {
+        val history = historyStore ?: return
+        if (ruleStore.loadRules().none { it.packageName == packageName }) return
+        if (!protectionStatus.protectionAvailable()) return
+        val now = clock.instant()
+        val localDate = now.atZone(clock.zone).toLocalDate()
+        val usedDuration = usageLookup.usedDuration(packageName, now)
+        history.run {
+            pruneBefore(localDate.minusDays(89))
+            recordUsage(packageName, localDate, usedDuration.roundedUpMinutes())
+        }
+    }
 }
+
+private fun java.time.Duration.roundedUpMinutes(): Int =
+    if (isZero) 0 else ((toMillis() + 59_999L) / 60_000L).toInt()

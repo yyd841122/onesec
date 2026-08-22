@@ -179,7 +179,10 @@ class TodayUsageControllerTest {
             java.time.LocalDate.of(2026, 8, 22),
         )
         val controller = TodayUsageController(
-            ruleStore = TestPolicyStore(listOf(rule), listOf(pending)),
+            ruleStore = TestPolicyStore(
+                listOf(rule),
+                listOf(pending, PendingRelaxation.DisableProtection(java.time.LocalDate.of(2026, 8, 22))),
+            ),
             permissionGateway = TestPermissionGateway(true),
             usageEvents = TestUsageEventSource(
                 listOf(event("2026-08-21T01:00:00Z", UsageEventType.FOREGROUND), event("2026-08-21T01:12:00Z", UsageEventType.BACKGROUND)),
@@ -195,17 +198,28 @@ class TodayUsageControllerTest {
         assertEquals(pending, controller.state.apps.single().pendingRelaxation)
         assertEquals(3, controller.state.interventionCount)
         assertTrue(controller.state.emergencyOverrideUsed)
+        assertEquals(
+            java.time.LocalDate.of(2026, 8, 22),
+            controller.state.globalPendingRelaxation?.effectiveDate,
+        )
     }
 
     @Test
     fun `clear all local data returns the overview to its real initial state`() {
         var cleared = false
+        var rules = listOf(rule)
         val controller = TodayUsageController(
-            ruleStore = TestRuleStore(listOf(rule)),
+            ruleStore = object : RestrictionRuleStore {
+                override fun loadRules() = rules
+                override fun saveRule(rule: RestrictedAppRule) = Unit
+            },
             permissionGateway = TestPermissionGateway(true),
             usageEvents = TestUsageEventSource(emptyList()),
             clock = Clock.fixed(now, zone),
-            localDataClearer = LocalDataClearer { cleared = true },
+            localDataClearer = LocalDataClearer {
+                cleared = true
+                rules = emptyList()
+            },
         )
 
         controller.clearAllLocalData()
@@ -213,6 +227,21 @@ class TodayUsageControllerTest {
         assertTrue(cleared)
         assertTrue(controller.state.apps.isEmpty())
         assertEquals(0, controller.state.totalUsedMinutes)
+    }
+
+    @Test
+    fun `clear re-reads protection status instead of assuming permissions`() {
+        val controller = TodayUsageController(
+            ruleStore = TestRuleStore(emptyList()),
+            permissionGateway = TestPermissionGateway(false),
+            usageEvents = TestUsageEventSource(emptyList()),
+            clock = Clock.fixed(now, zone),
+            localDataClearer = LocalDataClearer {},
+        )
+
+        controller.clearAllLocalData()
+
+        assertFalse(controller.state.protectionAvailable)
     }
 
     private fun controllerWith(
